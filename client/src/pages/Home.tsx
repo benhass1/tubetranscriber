@@ -1,33 +1,23 @@
-import { useAuth } from "@/_core/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+import SiteShell from "@/components/SiteShell";
+import { ArrowRight, CheckCircle2, FileDown, Search, ShieldCheck, Sparkles, Subtitles } from "lucide-react";
+import { FormEvent, useState } from "react";
+import { useLocation } from "wouter";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
- */
+const features = [
+  { icon: Subtitles, title: "Readable captions", text: "Turn public YouTube captions into a clean, searchable transcript in a focused reading view." },
+  { icon: FileDown, title: "Three export formats", text: "Leave with a practical TXT, structured JSON, or ready-to-use SRT subtitle file." },
+  { icon: ShieldCheck, title: "Your private library", text: "Signed-in lookups are saved only to your personal history for quick re-opening." },
+];
+
 export default function Home() {
-  // The useAuth hook provides authentication state.
-  // To implement login/logout, call logout(), or start login from an event
-  // handler: onClick={() => startLogin()} (imported from "@/const"). Never call
-  // startLogin() during render (no href={startLogin()}) — it mints a one-time
-  // nonce cookie and must run only at the moment of navigation.
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
-
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
-
-  return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
-    </div>
-  );
+  const [, navigate] = useLocation();
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState("");
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!url.trim()) { setError("Paste a YouTube URL to continue."); return; }
+    setError("");
+    navigate(`/transcript?url=${encodeURIComponent(url.trim())}`);
+  };
+  return <SiteShell><section className="hero-section"><div className="hero-grid" aria-hidden="true" /><div className="hero-orb orb-one" aria-hidden="true" /><div className="hero-orb orb-two" aria-hidden="true" /><div className="content-container hero-content"><p className="eyebrow"><Sparkles size={14} /> Transcript intelligence, made useful</p><h1>Every word,<br /><span>within reach.</span></h1><p className="hero-lede">Paste a YouTube link to read, search, copy, and download its available captions in a beautifully uncluttered workspace.</p><form className="url-form" onSubmit={submit} noValidate><div className="url-field"><Search size={19} /><input value={url} onChange={event => setUrl(event.target.value)} aria-label="YouTube video URL" placeholder="Paste a YouTube URL" autoComplete="url" /></div><button type="submit" className="primary-button">Extract transcript <ArrowRight size={18} /></button></form>{error && <p className="input-error" role="alert">{error}</p>}<div className="trust-row"><CheckCircle2 size={16} /><span>Supports videos, Shorts, and embed links</span><span className="trust-dot" /><span>TXT, JSON, and SRT exports</span></div></div></section><section className="feature-section content-container"><div className="section-heading"><p className="eyebrow">A quieter way to work with video</p><h2>Built for the details that matter.</h2></div><div className="feature-grid">{features.map(({ icon: Icon, title, text }, index) => <article className="feature-card" key={title}><span className={`feature-icon feature-icon-${index}`}><Icon size={21} /></span><h3>{title}</h3><p>{text}</p></article>)}</div></section><section className="landing-faq"><div className="content-container landing-faq-inner"><div><p className="eyebrow">A few quick answers</p><h2>Captions in, clarity out.</h2></div><div className="faq-preview"><p><strong>Which videos are supported?</strong><span>Public YouTube videos, Shorts, and embed links with available captions.</span></p><p><strong>What happens to my history?</strong><span>Signed-in lookups are saved only to your private TubeTranscriber library.</span></p><a href="/about">Read the full FAQ <ArrowRight size={15} /></a></div></div></section><section className="how-section"><div className="content-container how-layout"><div><p className="eyebrow">Simple by design</p><h2>From link to insight<br />in three calm steps.</h2></div><ol className="steps-list"><li><span>01</span><div><h3>Paste a link</h3><p>Share any public YouTube video URL, including Shorts and embeds.</p></div></li><li><span>02</span><div><h3>Review the transcript</h3><p>Search the words you need and navigate by precise timestamps.</p></div></li><li><span>03</span><div><h3>Export your way</h3><p>Copy it instantly or save TXT, JSON, and SRT files for later.</p></div></li></ol></div></section></SiteShell>;
 }
