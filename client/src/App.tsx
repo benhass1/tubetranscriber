@@ -14,7 +14,7 @@ import { useLocation } from "wouter";
 function PageTitle() {
   const [location] = useLocation();
   useEffect(() => {
-    const labels: Record<string, string> = { "/": "YouTube Transcript Extractor", "/history": "Transcript History", "/about": "About & FAQ", "/transcript": "Transcript Viewer" };
+    const labels: Record<string, string> = { "/": "YouTube Transcript Extractor", "/history": "Local Transcript History", "/about": "About, FAQ, and Caption Guide", "/transcript": "YouTube Transcript Reader" };
     document.title = `${labels[location] ?? "TubeTranscriber"} | TubeTranscriber`;
   }, [location]);
   return null;

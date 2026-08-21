@@ -9,3 +9,13 @@ After normalization, the public-video viewer showed an approximate duration of 0
 The transcript route now exposes the document title `Transcript Viewer | TubeTranscriber`. On a subsequent source request that did not return captions, the route preserved its route-specific title and displayed the intended caption-unavailable recovery state.
 
 After the simplified-color revision, both light and dark modes were checked in-browser. The local preference was restored as light on navigation, and the toggle switched to the revised dark palette with the reciprocal light-mode control label.
+
+The anonymous transcript route was verified with a public captioned video. It rendered continuous plain transcript text without visible timestamp markers, retained the search/copy/export controls, and showed no sign-in requirement.
+
+The completed lookup appeared in the browser-local History page with re-open and removal controls. Selecting re-open returned to the associated transcript route without requiring an account.
+
+The individual history removal action was verified in-browser: removing the saved lookup immediately returned the history page to its anonymous empty state.
+
+Two local-only verification entries were then displayed together in the browser History page, confirming the clear-history control operates on multiple stored entries.
+
+The clear-history action was exercised in-browser and removed all local entries, returning the page to its intended empty state.

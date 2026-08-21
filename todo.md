@@ -14,4 +14,9 @@
 - [x] Diagnose and implement a deployment-compatible fix for the production-only transcript retrieval failure while preserving a clear unavailable-captions state for videos that genuinely lack captions.
 - [x] Replace the neon-gradient visual treatment with a restrained, simple-color light/dark design across the landing page, reader, history, and About page.
 - [x] Re-verify local transcript behavior and the simplified visual modes before saving a revised checkpoint.
-- [ ] After the user publishes the revised checkpoint, confirm the yt-dlp production fallback with a public captioned video and review the published runtime result.
+- [x] After the user publishes the revised checkpoint, confirm the yt-dlp production fallback with a public captioned video and review the published runtime result.
+- [x] Remove the user-login requirement and all account-dependent controls from the public TubeTranscriber experience.
+- [x] Replace server-stored account history with a browser-local transcript history that persists through localStorage and supports reopen, delete, and clear actions.
+- [x] Simplify the transcript reader into continuous readable text without visible timestamp markers while retaining search, copy, and exports.
+- [x] Add crawlable semantic page structure, descriptive metadata, JSON-LD, robots guidance, and heading hierarchy for search engines and AI crawlers.
+- [x] Validate the anonymous local history flow, plain-text transcript view, and crawler-visible semantic content before delivery.

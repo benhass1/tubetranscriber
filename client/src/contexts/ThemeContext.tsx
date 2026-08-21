@@ -5,15 +5,12 @@ type ThemeContextValue = { theme: Theme; setTheme: (theme: Theme) => void; toggl
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 const STORAGE_KEY = "tubetranscriber-theme";
 
-function initialTheme(defaultTheme: Theme) {
-  if (typeof window === "undefined") return defaultTheme;
-  const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (saved === "light" || saved === "dark") return saved;
-  return defaultTheme;
-}
-
 export function ThemeProvider({ children, defaultTheme = "dark" }: { children: ReactNode; defaultTheme?: Theme; switchable?: boolean }) {
-  const [theme, setTheme] = useState<Theme>(() => initialTheme(defaultTheme));
+  const [theme, setTheme] = useState<Theme>(defaultTheme);
+  useEffect(() => {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (saved === "light" || saved === "dark") setTheme(saved);
+  }, []);
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     document.documentElement.style.colorScheme = theme;
