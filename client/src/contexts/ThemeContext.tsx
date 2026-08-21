@@ -3,7 +3,7 @@ import { createContext, ReactNode, useContext, useEffect, useState } from "react
 type Theme = "light" | "dark";
 type ThemeContextValue = { theme: Theme; setTheme: (theme: Theme) => void; toggleTheme: () => void };
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
-const STORAGE_KEY = "tubetranscriber-theme";
+const STORAGE_KEY = "tubetranscriber-theme-v2";
 
 export function ThemeProvider({ children, defaultTheme = "dark" }: { children: ReactNode; defaultTheme?: Theme; switchable?: boolean }) {
   const [theme, setTheme] = useState<Theme>(defaultTheme);

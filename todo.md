@@ -27,3 +27,14 @@
 - [x] Verify the updated reader controls, navigation, typography, and SEO output before delivery.
 - [x] Verify TXT, JSON, and SRT download actions end-to-end in the browser after the transcript-control update.
 - [x] Record the complete reader-controls, navigation, typography, and SEO verification after validating every download action.
+- [x] Rebuild the public pages with a clear white-and-blue visual system for both light and dark modes.
+- [x] Replace the current landing headline with “YouTube video to transcript made easy” and preserve the target keyword intent in semantic headings and metadata.
+- [x] Add a visible YouTube link input and extraction control above each completed transcript so visitors can generate another transcript without leaving the reader.
+- [x] Refine the transcript action panel so the copy and TXT, JSON, and SRT export buttons are unambiguous, reliable, and responsive.
+- [x] Add Privacy Policy, Terms of Service, Copyright/DMCA, and Contact legal pages with footer navigation and crawlable metadata.
+- [x] Remediate audit findings on the public landing page: descriptive image alternatives, at least one meaningful H3, additional H2 structure, a 140–160 character meta description, and complete canonical URLs.
+- [x] Permit major search, AI answer, assistant-fetcher, and training crawler user agents through robots guidance while keeping only private history and transcript result URLs out of the index.
+- [x] Verify the revised white-and-blue design, transcript controls, legal routes, SEO headings, metadata, and crawler files before delivery.
+- [x] Ensure the inline new-link form resets the existing lookup and fetches the newly submitted transcript on the same reader route.
+- [x] Revalidate the latest white-and-blue completed transcript panel, including copy and TXT, JSON, and SRT controls, on a public captioned video.
+- [x] Verify that the inline new-link form is visible above a completed transcript and resets the reader to fetch a second submitted YouTube URL.

@@ -14,6 +14,6 @@ export default function SiteShell({ children }: { children: ReactNode }) {
   return <div className="app-shell">
     <header className="topbar"><div className="topbar-inner"><Brand /><nav className="desktop-nav" aria-label="Primary navigation">{nav.map(item => <Link key={item.href} href={item.href} className={location === item.href ? "active" : ""}>{item.label}</Link>)}</nav><div className="nav-actions">{location === "/transcript" && <Link href="/" className="new-transcript-link"><Plus size={15} /> New transcript</Link>}<button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} title="Toggle color theme">{theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}</button></div></div></header>
     <main>{children}</main>
-    <footer className="site-footer"><div className="footer-inner"><Brand /><div className="footer-links"><Link href="/about">About & FAQ</Link><a href="https://www.youtube.com" target="_blank" rel="noreferrer">YouTube</a></div><p>Transcript history remains in your browser. Not affiliated with YouTube or Google.</p></div></footer>
+    <footer className="site-footer"><div className="footer-inner"><Brand /><div className="footer-links"><Link href="/about">About & FAQ</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/copyright">Copyright</Link><Link href="/contact">Contact</Link></div><p>Transcript history remains in your browser. Not affiliated with YouTube or Google.</p></div></footer>
   </div>;
 }

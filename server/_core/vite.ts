@@ -11,7 +11,7 @@ import type { HeadMeta } from "../../client/src/ssr/seo";
 
 const canonicalOrigin = (process.env.CANONICAL_ORIGIN ?? "https://tubetransc-5mr8an8j.manus.space").replace(/\/$/, "");
 const siteName = "TubeTranscriber";
-const defaultDescription = "TubeTranscriber is a YouTube to transcript tool and YouTube transcript generator for reading, searching, copying, and exporting available captions without an account.";
+const defaultDescription = "Convert YouTube videos to accurate transcripts in seconds. Search, copy, and export captions as TXT, JSON, or SRT with TubeTranscriber online.";
 
 const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const safeText = (value: string, max: number) => value.replace(/\s+/g, " ").trim().slice(0, max);
@@ -22,12 +22,12 @@ function headTags(head: HeadMeta) {
   const canonical = head.canonicalPath && canonicalOrigin ? `${canonicalOrigin}${head.canonicalPath}` : "";
   const tags = [
     `<title>${title}</title>`, `<meta name="description" content="${description}" />`,
+    `<meta name="robots" content="${head.noindex || head.notFound ? "noindex, follow" : "index, follow, max-image-preview:large"}" />`,
     `<meta property="og:type" content="website" />`, `<meta property="og:title" content="${title}" />`, `<meta property="og:description" content="${description}" />`,
     `<meta property="og:site_name" content="${siteName}" />`, `<meta name="twitter:card" content="summary" />`,
     `<meta name="twitter:title" content="${title}" />`, `<meta name="twitter:description" content="${description}" />`,
   ];
   if (canonical) tags.push(`<link rel="canonical" href="${escapeHtml(canonical)}" />`, `<meta property="og:url" content="${escapeHtml(canonical)}" />`);
-  if (head.noindex || head.notFound) tags.push(`<meta name="robots" content="noindex, follow" />`);
   if (head.jsonLd) tags.push(`<script type="application/ld+json">${JSON.stringify(head.jsonLd).replace(/</g, "\\u003c")}</script>`);
   return tags.join("\n");
 }
@@ -40,12 +40,14 @@ function composeHtml(template: string, appHtml: string, head: HeadMeta, dehydrat
 function crawlerFiles(app: Express) {
   app.get("/robots.txt", (_req, res) => {
     const sitemap = canonicalOrigin ? `\nSitemap: ${canonicalOrigin}/sitemap.xml` : "";
-    res.type("text/plain").send(`User-agent: *\nAllow: /\nDisallow: /history\nDisallow: /transcript${sitemap}\n`);
+    const namedCrawlers = ["OAI-SearchBot", "ChatGPT-User", "GPTBot", "ClaudeBot", "Claude-SearchBot", "Claude-User", "PerplexityBot", "Perplexity-User", "Googlebot", "Bingbot", "DuckAssistBot", "Applebot", "Google-Extended", "meta-externalagent", "MistralAI-User"];
+    const rules = namedCrawlers.map(agent => `User-agent: ${agent}\nAllow: /\nDisallow: /history\nDisallow: /transcript`).join("\n\n");
+    res.type("text/plain").send(`${rules}\n\nUser-agent: *\nAllow: /\nDisallow: /history\nDisallow: /transcript${sitemap}\n`);
   });
-  app.get("/llms.txt", (_req, res) => res.type("text/plain").send(`# TubeTranscriber\n\nTubeTranscriber is a public YouTube to transcript tool and YouTube transcript generator. It can convert an available YouTube video to transcript text, making it a practical YouTube video transcript generator for reading, search, copy, and export workflows. Visitors paste a public YouTube URL and can export TXT, JSON, or SRT files. No account is required. Recent lookups are stored only in the visitor's browser.\n\n## Public pages\n\n- / — YouTube transcript generator and usage overview\n- /about — usage guide, FAQ, and privacy notes\n\n## Limitations\n\nA transcript is available only when YouTube exposes captions for the requested public video. TubeTranscriber is not affiliated with YouTube or Google.\n`));
+  app.get("/llms.txt", (_req, res) => res.type("text/plain").send(`# TubeTranscriber\n\nTubeTranscriber is a public YouTube to transcript tool and YouTube transcript generator. It can convert an available YouTube video to transcript text, making it a practical YouTube video transcript generator for reading, search, copy, and export workflows. Visitors paste a public YouTube URL and can export TXT, JSON, or SRT files. No account is required. Recent lookups are stored only in the visitor's browser.\n\n## Public pages\n\n- / — YouTube transcript generator and usage overview\n- /about — usage guide and FAQ\n- /privacy — browser-local data and privacy policy\n- /terms — responsible-use terms\n- /copyright — copyright and DMCA guidance\n- /contact — support and legal contact information\n\n## Limitations\n\nA transcript is available only when YouTube exposes captions for the requested public video. TubeTranscriber is not affiliated with YouTube or Google.\n`));
   app.get("/sitemap.xml", (_req, res) => {
     if (!canonicalOrigin) return res.status(404).type("text/plain").send("Configure CANONICAL_ORIGIN to enable the sitemap.");
-    const urls = ["/", "/about"].map(route => `<url><loc>${canonicalOrigin}${route}</loc></url>`).join("");
+    const urls = ["/", "/about", "/privacy", "/terms", "/copyright", "/contact"].map(route => `<url><loc>${canonicalOrigin}${route}</loc></url>`).join("");
     res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
   });
 }
