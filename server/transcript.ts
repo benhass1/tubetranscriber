@@ -1,6 +1,7 @@
 import { YoutubeTranscript, YoutubeTranscriptDisabledError, YoutubeTranscriptNotAvailableError, YoutubeTranscriptTooManyRequestError, YoutubeTranscriptVideoUnavailableError } from "youtube-transcript";
 import { TRPCError } from "@trpc/server";
 import type { TranscriptSegment } from "@shared/transcript";
+import { extractWithYtDlp } from "./ytdlp";
 
 export type VideoMetadata = {
   videoId: string;
@@ -85,8 +86,18 @@ export async function extractTranscript(url: string) {
   const [oembedMetadata, pageDuration] = await Promise.all([fetchVideoMetadata(videoId), fetchVideoDuration(videoId)]);
   const metadata = { ...oembedMetadata, durationSeconds: pageDuration };
   try {
-    const raw = await YoutubeTranscript.fetchTranscript(videoId);
-    const segments = normalizeTranscript(raw);
+    // Cloud deployment IPs are commonly rejected by the lightweight web-caption
+    // client used during local development. The production image includes yt-dlp,
+    // which uses YouTube's supported player profiles and subtitle files first.
+    let segments: TranscriptSegment[] = [];
+    if (process.env.NODE_ENV === "production") {
+      try { segments = await extractWithYtDlp(videoId); }
+      catch (error) { console.warn("[Transcript] yt-dlp fallback failed; trying direct captions", error); }
+    }
+    if (segments.length === 0) {
+      const raw = await YoutubeTranscript.fetchTranscript(videoId);
+      segments = normalizeTranscript(raw);
+    }
     if (segments.length === 0) throw new YoutubeTranscriptNotAvailableError(videoId);
     const last = segments.at(-1);
     return { metadata: { ...metadata, durationSeconds: last ? last.start + last.duration : null }, segments };

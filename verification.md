@@ -7,3 +7,5 @@ A public YouTube lookup returned metadata and a caption viewer during initial ve
 After normalization, the public-video viewer showed an approximate duration of 00:03:31 and grouped caption blocks beginning at 00:00:01. The light-mode control changed the rendered page to the complete light palette and retained the chosen preference in the active browser session through local storage.
 
 The transcript route now exposes the document title `Transcript Viewer | TubeTranscriber`. On a subsequent source request that did not return captions, the route preserved its route-specific title and displayed the intended caption-unavailable recovery state.
+
+After the simplified-color revision, both light and dark modes were checked in-browser. The local preference was restored as light on navigation, and the toggle switched to the revised dark palette with the reciprocal light-mode control label.

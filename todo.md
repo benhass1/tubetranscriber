@@ -11,3 +11,7 @@
 - [x] Add SEO-ready page titles and footer links with TubeTranscriber naming used consistently throughout the interface.
 - [x] Add unit coverage for parsing, export formatting, URL validation, and authenticated history behavior.
 - [x] Verify local build, tests, responsive rendering, theme persistence, and key interaction paths before delivery.
+- [x] Diagnose and implement a deployment-compatible fix for the production-only transcript retrieval failure while preserving a clear unavailable-captions state for videos that genuinely lack captions.
+- [x] Replace the neon-gradient visual treatment with a restrained, simple-color light/dark design across the landing page, reader, history, and About page.
+- [x] Re-verify local transcript behavior and the simplified visual modes before saving a revised checkpoint.
+- [ ] After the user publishes the revised checkpoint, confirm the yt-dlp production fallback with a public captioned video and review the published runtime result.
