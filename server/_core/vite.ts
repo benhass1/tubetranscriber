@@ -9,9 +9,9 @@ import superjson from "superjson";
 import viteConfig from "../../vite.config";
 import type { HeadMeta } from "../../client/src/ssr/seo";
 
-const canonicalOrigin = (process.env.CANONICAL_ORIGIN ?? "").replace(/\/$/, "");
+const canonicalOrigin = (process.env.CANONICAL_ORIGIN ?? "https://tubetransc-5mr8an8j.manus.space").replace(/\/$/, "");
 const siteName = "TubeTranscriber";
-const defaultDescription = "TubeTranscriber converts available YouTube captions into readable text you can search, copy, and export without an account.";
+const defaultDescription = "TubeTranscriber is a YouTube to transcript tool and YouTube transcript generator for reading, searching, copying, and exporting available captions without an account.";
 
 const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const safeText = (value: string, max: number) => value.replace(/\s+/g, " ").trim().slice(0, max);
@@ -42,7 +42,7 @@ function crawlerFiles(app: Express) {
     const sitemap = canonicalOrigin ? `\nSitemap: ${canonicalOrigin}/sitemap.xml` : "";
     res.type("text/plain").send(`User-agent: *\nAllow: /\nDisallow: /history\nDisallow: /transcript${sitemap}\n`);
   });
-  app.get("/llms.txt", (_req, res) => res.type("text/plain").send(`# TubeTranscriber\n\nTubeTranscriber is a public web utility for turning available YouTube captions into readable plain text. Visitors can paste a public YouTube URL, search the returned transcript, copy it, or export TXT, JSON, and SRT files. No account is required. Recent lookups are stored only in the visitor's browser.\n\n## Public pages\n\n- / — YouTube transcript extractor and usage overview\n- /about — usage guide, FAQ, and privacy notes\n\n## Limitations\n\nA transcript is available only when YouTube exposes captions for the requested public video. TubeTranscriber is not affiliated with YouTube or Google.\n`));
+  app.get("/llms.txt", (_req, res) => res.type("text/plain").send(`# TubeTranscriber\n\nTubeTranscriber is a public YouTube to transcript tool and YouTube transcript generator. It can convert an available YouTube video to transcript text, making it a practical YouTube video transcript generator for reading, search, copy, and export workflows. Visitors paste a public YouTube URL and can export TXT, JSON, or SRT files. No account is required. Recent lookups are stored only in the visitor's browser.\n\n## Public pages\n\n- / — YouTube transcript generator and usage overview\n- /about — usage guide, FAQ, and privacy notes\n\n## Limitations\n\nA transcript is available only when YouTube exposes captions for the requested public video. TubeTranscriber is not affiliated with YouTube or Google.\n`));
   app.get("/sitemap.xml", (_req, res) => {
     if (!canonicalOrigin) return res.status(404).type("text/plain").send("Configure CANONICAL_ORIGIN to enable the sitemap.");
     const urls = ["/", "/about"].map(route => `<url><loc>${canonicalOrigin}${route}</loc></url>`).join("");

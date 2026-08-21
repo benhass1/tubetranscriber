@@ -8,7 +8,7 @@ export type HeadMeta = {
 };
 
 const SITE = "TubeTranscriber";
-const DEFAULT_DESCRIPTION = "TubeTranscriber converts available YouTube captions into readable text you can search, copy, and export as TXT, JSON, or SRT without an account.";
+const DEFAULT_DESCRIPTION = "TubeTranscriber is a YouTube to transcript tool and YouTube transcript generator for reading, searching, copying, and exporting available YouTube video captions without an account.";
 
 const webApplicationSchema = {
   "@context": "https://schema.org",
@@ -16,8 +16,8 @@ const webApplicationSchema = {
   name: SITE,
   applicationCategory: "UtilitiesApplication",
   operatingSystem: "Web",
-  description: DEFAULT_DESCRIPTION,
-  featureList: ["YouTube caption extraction", "Plain-text transcript reader", "TXT, JSON, and SRT exports", "Browser-local history"],
+  description: "A YouTube video to transcript and YouTube video transcript generator that turns available captions into searchable, exportable text.",
+  featureList: ["YouTube to transcript conversion", "Plain-text transcript reader", "TXT, JSON, and SRT exports", "Browser-local history"],
 };
 
 const faqSchema = {
@@ -32,7 +32,7 @@ const faqSchema = {
 
 export function getHeadMeta(url: string): HeadMeta {
   const path = (url.split("?")[0].replace(/\/+$/, "") || "/").toLowerCase();
-  if (path === "/") return { title: "YouTube Transcript Extractor | TubeTranscriber", description: DEFAULT_DESCRIPTION, canonicalPath: "/", jsonLd: webApplicationSchema };
+  if (path === "/") return { title: "YouTube to Transcript Generator | TubeTranscriber", description: DEFAULT_DESCRIPTION, canonicalPath: "/", jsonLd: webApplicationSchema };
   if (path === "/about") return { title: "About, FAQ, and Caption Guide | TubeTranscriber", description: "Learn how TubeTranscriber reads available YouTube captions, stores history in your browser, and offers readable text exports.", canonicalPath: "/about", jsonLd: faqSchema };
   if (path === "/history") return { title: "Local Transcript History | TubeTranscriber", description: "View transcript lookups saved privately in this browser.", noindex: true };
   if (path === "/transcript") return { title: "YouTube Transcript Reader | TubeTranscriber", description: "Read, search, copy, and export an available YouTube transcript.", noindex: true };

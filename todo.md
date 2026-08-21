@@ -20,3 +20,10 @@
 - [x] Simplify the transcript reader into continuous readable text without visible timestamp markers while retaining search, copy, and exports.
 - [x] Add crawlable semantic page structure, descriptive metadata, JSON-LD, robots guidance, and heading hierarchy for search engines and AI crawlers.
 - [x] Validate the anonymous local history flow, plain-text transcript view, and crawler-visible semantic content before delivery.
+- [x] Replace the current font pairing with a more suitable, readable TubeTranscriber typography system.
+- [x] Fix transcript tool controls so copy and all download-format buttons have clear, reliable interaction behavior.
+- [x] Add a prominent top-level reader-page action that lets visitors start another YouTube transcript generation immediately.
+- [x] Add the target phrases “youtube to transcript,” “youtube transcript generator,” “youtube video to transcript,” and “youtube video transcript generator” naturally to crawlable content and page metadata.
+- [x] Verify the updated reader controls, navigation, typography, and SEO output before delivery.
+- [x] Verify TXT, JSON, and SRT download actions end-to-end in the browser after the transcript-control update.
+- [x] Record the complete reader-controls, navigation, typography, and SEO verification after validating every download action.

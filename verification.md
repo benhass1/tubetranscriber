@@ -19,3 +19,11 @@ The individual history removal action was verified in-browser: removing the save
 Two local-only verification entries were then displayed together in the browser History page, confirming the clear-history control operates on multiple stored entries.
 
 The clear-history action was exercised in-browser and removed all local entries, returning the page to its intended empty state.
+
+The reader page now renders a top-level New transcript shortcut alongside the global navigation. The copy and all three download actions remain available in the reader after the interaction-control update.
+
+The Copy all text control was exercised with a public transcript and immediately changed to its visible “Copied to clipboard” confirmation state.
+
+The Plain text and JSON transcript export controls were each exercised in the browser and triggered their respective download actions without navigation or UI errors.
+
+The SRT export control was also exercised. The browser download directory contained the expected TXT, JSON, and SRT files for the requested transcript, completing export verification.
