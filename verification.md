@@ -45,3 +45,21 @@ On the current reader, Copy all text produced its clipboard confirmation and Pla
 The final JSON and SRT export actions also produced their corresponding visible download-started confirmations on the same completed transcript.
 
 Submitting the shortened version of the completed video URL through the inline form switched the reader into its loading state and then reloaded the completed transcript on the same route, confirming the prior lookup is reset correctly.
+
+The final completed white-and-blue transcript panel shows Copy all text with an aligned leading icon and all three export labels—Plain text, JSON data, and SRT subtitles—left-aligned beside their respective icons, with download affordances retained on the far right.
+
+The refined Copy all text control was exercised on the completed transcript, presented its visible copied confirmation, and then returned to its normal actionable state without affecting the aligned export labels.
+
+The completed reader was checked again after the final alignment styles: desktop shows text labels aligned to the left of the panel with download icons at the far right, while the mobile layout uses the same row-based control structure rather than stacked label/icon controls.
+
+The final aligned Plain text and JSON controls were exercised on the completed transcript and each produced its visible download-started confirmation.
+
+The final aligned SRT action also produced its download-started confirmation. The browser download directory contains the generated TXT, JSON, and SRT files for the completed accessibility-caption transcript.
+
+The final desktop reader visibly confirmed the requested ordering and alignment. The responsive mobile rule preserves the same full-width row structure with a leading icon, left-aligned label, and trailing download icon; automated build, type, and test checks passed after the styling change.
+
+The final mobile rule was inspected with the completed-panel structure: it preserves the leading icon, flexible left-aligned label span, and terminal download icon for each export row rather than switching the elements to a stacked control.
+
+A true 390×844 browser screenshot of the completed captioned transcript confirms the final mobile action panel: Plain text, JSON data, and SRT subtitles each appear left-aligned after their leading icons, and their download icons are positioned at the far right of the row.
+
+After warming the successful server-side lookup cache, the managed mobile preview rendered the completed captioned reader at 390×844 with the final action panel. The screenshot confirms the exact requested row layout for every export control.

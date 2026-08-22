@@ -11,6 +11,10 @@ export type VideoMetadata = {
   durationSeconds: number | null;
 };
 
+export type ExtractedTranscript = { metadata: VideoMetadata; segments: TranscriptSegment[] };
+const SUCCESS_CACHE_TTL_MS = 5 * 60 * 1000;
+const successfulTranscriptCache = new Map<string, { expiresAt: number; result: ExtractedTranscript }>();
+
 export function parseYoutubeId(value: string) {
   const candidate = value.trim();
   if (/^[a-zA-Z0-9_-]{11}$/.test(candidate)) return candidate;
@@ -83,6 +87,10 @@ export async function extractTranscript(url: string) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Paste a valid YouTube video link, Short, embed link, or 11-character video ID." });
   }
 
+  const cached = successfulTranscriptCache.get(videoId);
+  if (cached && cached.expiresAt > Date.now()) return cached.result;
+  if (cached) successfulTranscriptCache.delete(videoId);
+
   const [oembedMetadata, pageDuration] = await Promise.all([fetchVideoMetadata(videoId), fetchVideoDuration(videoId)]);
   const metadata = { ...oembedMetadata, durationSeconds: pageDuration };
   try {
@@ -100,7 +108,9 @@ export async function extractTranscript(url: string) {
     }
     if (segments.length === 0) throw new YoutubeTranscriptNotAvailableError(videoId);
     const last = segments.at(-1);
-    return { metadata: { ...metadata, durationSeconds: last ? last.start + last.duration : null }, segments };
+    const result: ExtractedTranscript = { metadata: { ...metadata, durationSeconds: last ? last.start + last.duration : null }, segments };
+    successfulTranscriptCache.set(videoId, { expiresAt: Date.now() + SUCCESS_CACHE_TTL_MS, result });
+    return result;
   } catch (error) {
     if (error instanceof YoutubeTranscriptVideoUnavailableError) {
       throw new TRPCError({ code: "NOT_FOUND", message: "This video is unavailable, private, or cannot be accessed." });

@@ -38,3 +38,12 @@
 - [x] Ensure the inline new-link form resets the existing lookup and fetches the newly submitted transcript on the same reader route.
 - [x] Revalidate the latest white-and-blue completed transcript panel, including copy and TXT, JSON, and SRT controls, on a public captioned video.
 - [x] Verify that the inline new-link form is visible above a completed transcript and resets the reader to fetch a second submitted YouTube URL.
+- [x] Stabilize Copy all text feedback so the button remains visibly actionable and reports success or an accessible fallback clearly.
+- [x] Keep the Plain text, JSON data, and SRT subtitles labels left-aligned with their leading icons and retain download icons on the far right across desktop and mobile.
+- [x] Re-verify the refined copy and export controls on a completed captioned transcript before delivery.
+- [x] Verify the final action-panel alignment on desktop and mobile, including labels at the left and download icons at the far right.
+- [x] Re-test TXT, JSON, and SRT exports on the final aligned action panel before delivery.
+- [x] Visually confirm the completed transcript action panel at both desktop and mobile widths, including the far-right download icons.
+- [x] Verify the completed action panel with the final mobile row layout applied, confirming every label and trailing download icon position.
+- [x] Capture and inspect a completed transcript reader at a true mobile viewport to confirm final export-row alignment.
+- [x] Cache successful server-side transcript lookups briefly so repeated reader visits can render reliably without another external caption request.
