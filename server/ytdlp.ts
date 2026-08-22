@@ -7,6 +7,17 @@ import type { TranscriptSegment } from "@shared/transcript";
 type Json3Event = { tStartMs?: number; dDurationMs?: number; segs?: Array<{ utf8?: string }> };
 type Json3Payload = { events?: Json3Event[] };
 
+export class YouTubeRateLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "YouTubeRateLimitError";
+  }
+}
+
+export function isYtDlpRateLimited(stderr: string) {
+  return /\b(?:http\s+error\s+)?429\b|too many requests|rate limit/i.test(stderr);
+}
+
 export function parseJson3Transcript(payload: Json3Payload): TranscriptSegment[] {
   return (payload.events ?? []).flatMap(event => {
     const text = (event.segs ?? []).map(segment => segment.utf8 ?? "").join("").replace(/\s+/g, " ").trim();
@@ -37,6 +48,10 @@ export async function extractWithYtDlp(videoId: string): Promise<TranscriptSegme
   const workdir = await mkdtemp(join(tmpdir(), "tubetranscriber-"));
   try {
     const result = await runYtDlp([
+      // YouTube now requires its JavaScript challenge solver for reliable cloud
+      // extraction. Node 22 is present in the production image, and the Docker
+      // image installs the matching EJS and curl-cffi dependencies for yt-dlp.
+      "--js-runtimes", "node", "--impersonate", "chrome",
       "--no-playlist", "--skip-download", "--write-subs", "--write-auto-subs",
       "--sub-langs", "en", "--sub-format", "json3",
       "--output", join(workdir, "captions.%(ext)s"),
@@ -45,7 +60,11 @@ export async function extractWithYtDlp(videoId: string): Promise<TranscriptSegme
     const files = await readdir(workdir);
     const subtitleFile = files.find(file => file.endsWith(".json3"));
     if (!subtitleFile) {
-      if (result.code !== 0) throw new Error(result.stderr.slice(-800) || "yt-dlp did not return a subtitle track");
+      if (result.code !== 0) {
+        const detail = result.stderr.slice(-800) || "yt-dlp did not return a subtitle track";
+        if (isYtDlpRateLimited(detail)) throw new YouTubeRateLimitError(detail);
+        throw new Error(detail);
+      }
       return [];
     }
     const payload = JSON.parse(await readFile(join(workdir, subtitleFile), "utf8")) as Json3Payload;

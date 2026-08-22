@@ -65,3 +65,7 @@
 - [x] Redeploy the Render service with the runtime cleanup and confirm startup logs no longer contain the OAUTH_SERVER_URL error.
 - [x] Diagnose the reported transcript-unavailable result on the live custom domain using the user’s exact YouTube URL: yt-dlp confirms that video 5M-CF9NGF_M has no subtitle tracks, so the displayed unavailable-captions state is correct rather than an extraction regression.
 - [x] Document the remaining Render verification status for www.tubetranscriber.com HTTPS: both DNS records are correct, the apex is verified and live, and users should use https://tubetranscriber.com/ while Render finishes the separate www certificate issuance.
+- [x] Reproduce the reported captioned video 3kTvNfp3N9T against the external production fallback: current yt-dlp reports YouTube HTTP 429 from the cloud network, which then surfaced incorrectly as unavailable captions.
+- [x] Harden the yt-dlp subtitle strategy and error mapping with the Node JavaScript runtime, browser impersonation support, installed EJS/curl-cffi dependencies, and explicit rate-limit classification.
+- [ ] Deploy and verify the corrected captioned-video lookup on https://tubetranscriber.com/.
+- [ ] Capture the post-deployment Render-side outcome for 3kTvNfp3N9T through the live route or application logs.

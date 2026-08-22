@@ -1,7 +1,7 @@
 import { YoutubeTranscript, YoutubeTranscriptDisabledError, YoutubeTranscriptNotAvailableError, YoutubeTranscriptTooManyRequestError, YoutubeTranscriptVideoUnavailableError } from "youtube-transcript";
 import { TRPCError } from "@trpc/server";
 import type { TranscriptSegment } from "@shared/transcript";
-import { extractWithYtDlp } from "./ytdlp";
+import { extractWithYtDlp, YouTubeRateLimitError } from "./ytdlp";
 
 export type VideoMetadata = {
   videoId: string;
@@ -93,14 +93,19 @@ export async function extractTranscript(url: string) {
 
   const [oembedMetadata, pageDuration] = await Promise.all([fetchVideoMetadata(videoId), fetchVideoDuration(videoId)]);
   const metadata = { ...oembedMetadata, durationSeconds: pageDuration };
+  let ytDlpWasRateLimited = false;
   try {
     // Cloud deployment IPs are commonly rejected by the lightweight web-caption
     // client used during local development. The production image includes yt-dlp,
     // which uses YouTube's supported player profiles and subtitle files first.
     let segments: TranscriptSegment[] = [];
     if (process.env.NODE_ENV === "production") {
-      try { segments = await extractWithYtDlp(videoId); }
-      catch (error) { console.warn("[Transcript] yt-dlp fallback failed; trying direct captions", error); }
+      try {
+        segments = await extractWithYtDlp(videoId);
+      } catch (error) {
+        ytDlpWasRateLimited = error instanceof YouTubeRateLimitError;
+        console.warn("[Transcript] yt-dlp fallback failed; trying direct captions", error);
+      }
     }
     if (segments.length === 0) {
       const raw = await YoutubeTranscript.fetchTranscript(videoId);
@@ -120,6 +125,9 @@ export async function extractTranscript(url: string) {
     }
     if (error instanceof YoutubeTranscriptTooManyRequestError) {
       throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "YouTube is temporarily limiting transcript requests. Please wait a moment and try again." });
+    }
+    if (ytDlpWasRateLimited && (error instanceof YoutubeTranscriptDisabledError || error instanceof YoutubeTranscriptNotAvailableError)) {
+      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "YouTube is temporarily limiting transcript requests from the server. Please wait a moment and try again." });
     }
     console.error("[Transcript] Extraction failed", error);
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Transcript retrieval did not complete. Please check the link and try again." });
