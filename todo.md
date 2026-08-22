@@ -61,5 +61,7 @@
 - [x] Prepare and deploy TubeTranscriber to Render, register tubetranscriber.com and www.tubetranscriber.com, and repoint both hosts through Cloudflare.
 - [x] Implement OAuth gating so the public no-login runtime imports Manus OAuth only when OAUTH_SERVER_URL is configured.
 - [x] Make optional analytics markup safe when its Manus-provided variables are absent on Render.
-- [ ] Re-verify the Render subdomain, custom domain, HTTPS redirects, and canonical metadata after the external-runtime cleanup.
-- [ ] Redeploy the Render service with the runtime cleanup and confirm startup logs no longer contain the OAUTH_SERVER_URL error.
+- [x] Re-verify the Render subdomain, custom domain, HTTPS redirects, and canonical metadata after the external-runtime cleanup.
+- [x] Redeploy the Render service with the runtime cleanup and confirm startup logs no longer contain the OAUTH_SERVER_URL error.
+- [x] Diagnose the reported transcript-unavailable result on the live custom domain using the user’s exact YouTube URL: yt-dlp confirms that video 5M-CF9NGF_M has no subtitle tracks, so the displayed unavailable-captions state is correct rather than an extraction regression.
+- [x] Document the remaining Render verification status for www.tubetranscriber.com HTTPS: both DNS records are correct, the apex is verified and live, and users should use https://tubetranscriber.com/ while Render finishes the separate www certificate issuance.

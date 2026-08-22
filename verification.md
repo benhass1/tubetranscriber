@@ -71,3 +71,11 @@ After the hydration-safe reader initialization update, the same reported URL aga
 The production SSR route was also checked directly: it emits the deterministic “Preparing your transcript” loading tree, rather than a completed transcript result, matching the client’s first hydrated render before client-side lookup begins.
 
 Theme initialization now uses one explicit hydration-safe light default for the server and the client’s first React render; any saved browser theme is still applied only after hydration. A standalone browser run against the rebuilt production SSR server loaded the reported route without any hydration mismatch output.
+
+## External Render and Cloudflare verification
+
+TubeTranscriber was deployed as a free Docker web service on Render from the connected GitHub repository. The latest external-runtime deployment started cleanly without the prior missing `OAUTH_SERVER_URL` error, and Render reported the service live on its configured port. The live platform URL `https://tubetranscriber.onrender.com/` and primary custom URL `https://tubetranscriber.com/` each returned HTTP 200 during verification. HTTP requests to the apex redirected to HTTPS, and server-rendered canonical and Open Graph URL metadata use `https://tubetranscriber.com/`.
+
+Cloudflare contains DNS-only CNAME records for both `tubetranscriber.com` and `www.tubetranscriber.com`, each targeting `tubetranscriber.onrender.com`. The apex domain is verified and live. At the latest check, Render had not completed the separate www certificate verification despite the correct record; visitors should use the verified primary address `https://tubetranscriber.com/` until Render finishes issuing the www certificate.
+
+The user-reported production lookup for `https://www.youtube.com/watch?v=5M-CF9NGF_M` was independently checked with yt-dlp. YouTube reports that this video has no subtitle tracks, confirming that the application’s “Transcript unavailable” screen is the expected source-data outcome and not a domain, deployment, or extraction regression.
