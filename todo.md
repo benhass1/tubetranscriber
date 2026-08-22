@@ -87,3 +87,13 @@
 - [x] Capture a browser-console check after loading the proxied transcript route to confirm no hydration mismatch or client-side errors.
 - [x] Route tubetranscriber.com and www.tubetranscriber.com through the Cloudflare Worker to the published Manus origin; verified via the Manus transparent-proxy response header.
 - [x] Determine why video 3kTvNfp3N9T currently returns no captions from both the active Manus development and published Manus runtime: YouTube now reports “This video isn't available anymore,” so no current runtime can retrieve a transcript for it.
+- [x] Obtain the exact YouTube URL from the working Manus preview and test it unchanged through the Cloudflare custom domain.
+- [x] Compare the exact confirmed URL across the Manus preview, published Manus origin, and Cloudflare proxy: local Manus development returns HTTP 200, while the published Manus origin and Cloudflare proxy return HTTP 404.
+- [x] Diagnose the confirmed production-only failure for kTvNFp3N9T0: the published Manus yt-dlp log shows YouTube’s “Sign in to confirm you’re not a bot” challenge.
+- [ ] Apply and publish a production-compatible extraction fix, then verify kTvNFp3N9T0 returns a transcript through both the published Manus origin and tubetranscriber.com.
+- [ ] Obtain and validate the approved managed transcript-fallback API credential for server-only use.
+- [ ] Integrate the managed fallback only after production direct extraction is restricted, retaining existing TXT, JSON, and SRT exports.
+- [ ] Publish and verify kTvNFp3N9T0 through the published Manus origin and tubetranscriber.com.
+- [x] Assess Vercel’s runtime against the app’s Express, Python, and yt-dlp extraction requirements: its Dockerfile.vercel container-image feature can run the same stack; whether YouTube permits its production egress remains an isolated deployment test risk.
+- [x] Prepare an isolated Vercel container entrypoint with Dockerfile.vercel, port 80, Node 22, Python, yt-dlp, and curl-cffi without changing the live custom-domain route.
+- [ ] Deploy the isolated Vercel container test and compare kTvNFp3N9T0 before changing any production routing.

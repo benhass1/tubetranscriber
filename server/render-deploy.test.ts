@@ -27,4 +27,13 @@ describe("Render deployment configuration", () => {
     expect(html).not.toContain("%VITE_ANALYTICS_ENDPOINT%");
     expect(html).not.toContain("%VITE_ANALYTICS_WEBSITE_ID%");
   });
+
+  it("provides a Vercel container entrypoint with the same production extraction runtime", async () => {
+    const dockerfile = await readFile(new URL("../Dockerfile.vercel", import.meta.url), "utf8");
+
+    expect(dockerfile).toContain("FROM node:22-slim");
+    expect(dockerfile).toContain('"yt-dlp[default,curl-cffi]"');
+    expect(dockerfile).toContain("ENV PORT=80");
+    expect(dockerfile).toContain('CMD ["node", "dist/index.js"]');
+  });
 });
