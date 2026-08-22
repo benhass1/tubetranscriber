@@ -90,13 +90,14 @@
 - [x] Obtain the exact YouTube URL from the working Manus preview and test it unchanged through the Cloudflare custom domain.
 - [x] Compare the exact confirmed URL across the Manus preview, published Manus origin, and Cloudflare proxy: local Manus development returns HTTP 200, while the published Manus origin and Cloudflare proxy return HTTP 404.
 - [x] Diagnose the confirmed production-only failure for kTvNFp3N9T0: the published Manus yt-dlp log shows YouTube’s “Sign in to confirm you’re not a bot” challenge.
-- [ ] Apply and publish a production-compatible extraction fix, then verify kTvNFp3N9T0 returns a transcript through both the published Manus origin and tubetranscriber.com.
-- [ ] Re-request and validate the approved Supadata managed transcript-fallback credential for server-only use after the Vercel test confirmed that direct cloud extraction remains restricted.
-- [ ] Integrate the managed fallback only after production direct extraction is restricted, retaining existing TXT, JSON, and SRT exports.
-- [ ] Publish and verify kTvNFp3N9T0 through the published Manus origin and tubetranscriber.com.
+- [x] Supersede the remaining Manus production-remediation implementation because the user selected a separate Python-only Google AI Studio rebuild specification rather than continuing this hosted implementation.
+- [x] Supersede the Supadata credential request because the user now requires a Python-native, direct-retrieval-only implementation with no managed fallback API.
+- [x] Supersede the managed Supadata fallback integration because the user now requires a Python-native, direct-retrieval-only implementation with no managed fallback API.
+- [x] Supersede the remaining Manus-origin verification because the user selected a separate Python-only Google AI Studio rebuild specification rather than continuing this hosted implementation.
 - [x] Assess Vercel’s runtime against the app’s Express, Python, and yt-dlp extraction requirements: its Dockerfile.vercel container-image feature runs the same stack, but its live Washington, D.C. deployment receives YouTube’s bot challenge for kTvNFp3N9T0.
 - [x] Prepare an isolated Vercel container entrypoint with Dockerfile.vercel, port 80, Node 22, Python, yt-dlp, and curl-cffi without changing the live custom-domain route.
 - [x] Launch the isolated Vercel Container deployment from the acd9523a GitHub checkpoint; Vercel completed the image build and deployment without altering the Cloudflare custom-domain route.
 - [x] Run kTvNFp3N9T0 through the live Vercel deployment; the reader displayed “No captions are available,” and Vercel server logs confirm the yt-dlp error “Sign in to confirm you’re not a bot.”
 - [x] Deploy the isolated Vercel container test and compare kTvNFp3N9T0 before changing any production routing; Vercel does not solve the YouTube bot-check restriction, so its URL will not replace the live Cloudflare target.
 - [x] Prepare a detailed, copy-ready Google AI Studio prompt to rebuild TubeTranscriber with Python, preserving the public product requirements and managed fallback strategy learned from production testing.
+- [x] Revise the Google AI Studio prompt for a Python-only YouTube transcript implementation that uses yt-dlp and python transcript tooling, with no Supadata or other managed transcript fallback.
