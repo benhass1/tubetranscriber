@@ -1,7 +1,12 @@
-import { YoutubeTranscript, YoutubeTranscriptDisabledError, YoutubeTranscriptNotAvailableError, YoutubeTranscriptTooManyRequestError, YoutubeTranscriptVideoUnavailableError } from "youtube-transcript";
 import { TRPCError } from "@trpc/server";
 import type { TranscriptSegment } from "@shared/transcript";
 import { extractWithYtDlp, YouTubeRateLimitError, YouTubeUpstreamAccessError } from "./ytdlp";
+import {
+  extractWithPythonTranscript,
+  YouTubeCaptionAccessError,
+  YouTubeCaptionsUnavailableError,
+  YouTubeVideoUnavailableError,
+} from "./python-transcript";
 
 export type VideoMetadata = {
   videoId: string;
@@ -93,45 +98,49 @@ export async function extractTranscript(url: string) {
 
   const [oembedMetadata, pageDuration] = await Promise.all([fetchVideoMetadata(videoId), fetchVideoDuration(videoId)]);
   const metadata = { ...oembedMetadata, durationSeconds: pageDuration };
-  let ytDlpWasRateLimited = false;
-  let ytDlpWasBlocked = false;
+  let segments: TranscriptSegment[] = [];
+  let pythonError: unknown;
+  let ytDlpError: unknown;
+
   try {
-    // Cloud deployment IPs are commonly rejected by the lightweight web-caption
-    // client used during local development. The production image includes yt-dlp,
-    // which uses YouTube's supported player profiles and subtitle files first.
-    let segments: TranscriptSegment[] = [];
-    if (process.env.NODE_ENV === "production") {
-      try {
-        segments = await extractWithYtDlp(videoId);
-      } catch (error) {
-        ytDlpWasRateLimited = error instanceof YouTubeRateLimitError;
-        ytDlpWasBlocked = error instanceof YouTubeUpstreamAccessError;
-        console.warn("[Transcript] yt-dlp fallback failed; trying direct captions", error);
-      }
+    // Primary path: the maintained Python adapter reads the same publicly
+    // available caption tracks exposed to the YouTube web client without a key.
+    segments = await extractWithPythonTranscript(videoId);
+  } catch (error) {
+    pythonError = error;
+    console.warn("[Transcript] Python caption adapter failed; trying yt-dlp fallback", error);
+  }
+
+  if (segments.length === 0) {
+    try {
+      segments = await extractWithYtDlp(videoId);
+    } catch (error) {
+      ytDlpError = error;
+      console.warn("[Transcript] yt-dlp subtitle fallback failed", error);
     }
-    if (segments.length === 0) {
-      const raw = await YoutubeTranscript.fetchTranscript(videoId);
-      segments = normalizeTranscript(raw);
-    }
-    if (segments.length === 0) throw new YoutubeTranscriptNotAvailableError(videoId);
+  }
+
+  if (segments.length > 0) {
     const last = segments.at(-1);
     const result: ExtractedTranscript = { metadata: { ...metadata, durationSeconds: last ? last.start + last.duration : null }, segments };
     successfulTranscriptCache.set(videoId, { expiresAt: Date.now() + SUCCESS_CACHE_TTL_MS, result });
     return result;
-  } catch (error) {
-    if (error instanceof YoutubeTranscriptVideoUnavailableError) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "This video is unavailable, private, or cannot be accessed." });
-    }
-    if (error instanceof YoutubeTranscriptDisabledError || error instanceof YoutubeTranscriptNotAvailableError) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "No captions are available for this video. Try another video or check whether subtitles are enabled." });
-    }
-    if (error instanceof YoutubeTranscriptTooManyRequestError) {
-      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "YouTube is temporarily limiting transcript requests. Please wait a moment and try again." });
-    }
-    if ((ytDlpWasRateLimited || ytDlpWasBlocked) && (error instanceof YoutubeTranscriptDisabledError || error instanceof YoutubeTranscriptNotAvailableError)) {
-      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "YouTube is temporarily limiting or restricting transcript access from this server. Please wait and try again." });
-    }
-    console.error("[Transcript] Extraction failed", error);
-    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Transcript retrieval did not complete. Please check the link and try again." });
   }
+
+  if (pythonError instanceof YouTubeVideoUnavailableError) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "This video is unavailable, private, or cannot be accessed." });
+  }
+  if (
+    pythonError instanceof YouTubeCaptionAccessError ||
+    ytDlpError instanceof YouTubeRateLimitError ||
+    ytDlpError instanceof YouTubeUpstreamAccessError
+  ) {
+    throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "YouTube temporarily restricted automated caption retrieval from this service. Please try another video or try again later." });
+  }
+  if (pythonError instanceof YouTubeCaptionsUnavailableError || !ytDlpError) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "No public captions are available for this video." });
+  }
+
+  console.error("[Transcript] Extraction did not complete", { pythonError, ytDlpError });
+  throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Transcript retrieval did not complete. Please check the link and try again." });
 }
