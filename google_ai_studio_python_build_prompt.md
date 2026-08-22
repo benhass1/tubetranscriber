@@ -48,11 +48,11 @@ Create public legal pages at `/privacy`, `/terms`, `/copyright`, and `/contact`.
 
 STRICT RETRIEVAL POLICY — NO MANAGED FALLBACK:
 
-Use only these two direct Python retrieval methods:
+Use only these two direct Python retrieval methods. Do not manually imitate or hard-code undocumented YouTube browser endpoints. Use the maintained `youtube-transcript-api` library as the primary adapter, so its parser and error types remain isolated behind one Python service.
 
-1. First, use `youtube-transcript-api` as the primary caption retrieval adapter. Call it with the **YouTube video ID**, not an arbitrary URL. Prefer human-created captions in the requested language when available, then generated captions, with a sensible language priority such as `[requested_language, "en"]`.
+1. **Primary method: `youtube-transcript-api`.** First extract the canonical 11-character YouTube video ID, then create `ytt_api = YouTubeTranscriptApi()` and call `transcript_list = ytt_api.list(video_id)`. This is the current language-discovery interface; do not use the older `list_transcripts` method name. Build a de-duplicated language priority from the requested language, its base language code, and English. For each language, first call `transcript_list.find_manually_created_transcript([language])`; if absent, call `transcript_list.find_generated_transcript([language])`. As a final language-preserving fallback, use `find_transcript([language])`. Fetch the selected track with `selected_transcript.fetch()` and map `fetched_transcript.to_raw_data()` records (`text`, `start`, `duration`) into normalized segments. When the visitor has not requested a language, `ytt_api.fetch(video_id, languages=["en"])` may be used only as a convenience shortcut.
 
-2. If the first adapter returns no usable transcript, use the Python `yt-dlp` library as a fallback. Use `yt_dlp.YoutubeDL` through Python code, not shell command construction. Configure it safely for caption extraction only: no playlist, no media download, no arbitrary post-processing, bounded timeout, a temporary output location, and cleanup in `finally`. Retrieve manual and automatic subtitle tracks and normalize VTT/JSON subtitle data into one shared segment structure.
+2. **Secondary method: Python `yt-dlp`.** Invoke `yt_dlp.YoutubeDL` through Python code, not shell command construction, only after the primary method returns no usable captions. Configure it for caption extraction only: no playlist, no media download, no arbitrary post-processing, bounded timeout, a temporary output location, and cleanup in `finally`. Retrieve manual and automatic subtitle tracks and normalize VTT/JSON subtitle data into the same shared segment structure.
 
 Do **not** add Supadata, any other commercial/managed transcript API, residential or rotating proxies, imported browser cookies, `--cookies-from-browser`, CAPTCHA workarounds, user authentication cookies, or any mechanism intended to evade YouTube’s access controls. Do not ask visitors to upload browser cookies.
 
@@ -64,7 +64,7 @@ When captions are genuinely missing, show a different message:
 
 “No public captions are available for this video.”
 
-Never pretend the service can guarantee a transcript for every YouTube video.
+Never pretend the service can guarantee a transcript for every YouTube video. The source adapter must separately classify missing/disabled captions, unavailable videos, and temporary request/IP restrictions. Do not replace those typed outcomes with a generic “no transcript” response.
 
 NORMALIZED DATA MODEL:
 
@@ -88,7 +88,11 @@ TranscriptResult:
 - `plain_text: str`
 - `fetched_at: datetime`
 
-Normalize every provider result into these models. Clean caption artifacts without altering meaning. Build `plain_text` by joining captions with intelligent spacing and paragraph breaks. Do not show timestamps in the main reader, but retain them internally for SRT export.
+Normalize every provider result into these models. Clean caption artifacts without altering meaning. Build `plain_text` by joining captions with intelligent spacing and paragraph breaks. Do not show timestamps in the main reader by default, but retain them internally for SRT export.
+
+READER IMPROVEMENTS FROM THE PUBLIC WORKFLOW REVIEW:
+
+Add an embedded YouTube player beside or above the reader. Add a clearly optional “Show timestamps” view; it must be off by default to preserve the plain-text reading experience. When enabled, each segment may show its timestamp and seek the embedded player on click. Populate the language menu from `transcript_list` and identify whether a selection is manually created or auto-generated. If a selected track reports `is_translatable`, offer an optional translation action that calls the library’s own `selected_transcript.translate(target_language).fetch()` method; do not use a managed translation provider. Let visitors remove selected transcript paragraphs locally in the browser before copying or exporting, without automatically deleting sponsor, intro, or outro content.
 
 API AND PAGES:
 
@@ -98,7 +102,7 @@ API AND PAGES:
 - `POST /api/exports` accepts only a short-lived, validated cache token and `format=txt|json|srt`; it returns a file response with safe headers. Never accept arbitrary paths or arbitrary remote URLs.
 - `GET /healthz` returns a small JSON health response with no YouTube call.
 
-For performance, use an in-memory 10-minute cache for **successful** normalized transcript results keyed by video ID and language. Never cache errors. Keep the design safe for Cloud Run’s stateless multi-instance behavior; persistent caching is not required.
+For performance, use an in-memory 10-minute cache for **successful** normalized transcript results keyed by video ID and language. Cache the discovered language metadata for the same short TTL, so the reader can populate its language menu without immediately repeating the upstream request. Never cache errors. Keep the design safe for Cloud Run’s stateless multi-instance behavior; persistent caching is not required.
 
 SECURITY, VALIDATION, AND ERROR HANDLING:
 
@@ -142,7 +146,7 @@ The README must include local development, pytest, Docker build/run, GitHub sync
 
 TEST REQUIREMENTS:
 
-Use pytest and mocked provider responses. Write tests for URL normalization; SSRF rejection; primary `youtube-transcript-api` success; generated-caption language selection; yt-dlp fallback success; no-captions classification; bot-check/HTTP 403/HTTP 429 restriction classification; plain-text cleanup; TXT/JSON/SRT export correctness; and the browser-local history contract.
+Use pytest and mocked provider responses. Write tests for URL normalization; SSRF rejection; primary `youtube-transcript-api` success; the current `list(video_id)` language-discovery workflow; preference for manually created captions before generated captions; generated-caption language selection; translation only when a track is marked translatable; yt-dlp fallback success; no-captions classification; bot-check/HTTP 403/HTTP 429 restriction classification; plain-text cleanup; TXT/JSON/SRT export correctness; optional timestamp rendering; paragraph removal before export; and the browser-local history contract.
 
 Verify that a primary success does not invoke yt-dlp. Verify that a missing primary transcript invokes yt-dlp. Verify that both methods returning an upstream restriction produces the correct temporary-restriction message. Do not create fake reviews, ratings, testimonials, or mock customer data.
 
