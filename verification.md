@@ -63,3 +63,11 @@ The final mobile rule was inspected with the completed-panel structure: it prese
 A true 390×844 browser screenshot of the completed captioned transcript confirms the final mobile action panel: Plain text, JSON data, and SRT subtitles each appear left-aligned after their leading icons, and their download icons are positioned at the far right of the row.
 
 After warming the successful server-side lookup cache, the managed mobile preview rendered the completed captioned reader at 390×844 with the final action panel. The screenshot confirms the exact requested row layout for every export control.
+
+The reported transcript URL, including `from_webdev=1`, was reproduced in the local preview. It rendered the completed transcript reader and the browser console contained no current hydration error output.
+
+After the hydration-safe reader initialization update, the same reported URL again transitioned to the completed transcript and the browser console remained free of hydration mismatch output.
+
+The production SSR route was also checked directly: it emits the deterministic “Preparing your transcript” loading tree, rather than a completed transcript result, matching the client’s first hydrated render before client-side lookup begins.
+
+Theme initialization now uses one explicit hydration-safe light default for the server and the client’s first React render; any saved browser theme is still applied only after hydration. A standalone browser run against the rebuilt production SSR server loaded the reported route without any hydration mismatch output.

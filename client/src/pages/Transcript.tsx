@@ -48,6 +48,8 @@ export default function Transcript() {
   const [copied, setCopied] = useState(false);
   const [nextUrl, setNextUrl] = useState("");
   const [actionNotice, setActionNotice] = useState("");
+  const [hasHydrated, setHasHydrated] = useState(false);
+  useEffect(() => { setHasHydrated(true); }, []);
   useEffect(() => {
     if (!sourceUrl) return;
     lookup.reset();
@@ -66,6 +68,7 @@ export default function Transcript() {
     saveLocalHistoryEntry({ videoId: data.metadata.videoId, title: data.metadata.title, channel: data.metadata.channel, thumbnailUrl: data.metadata.thumbnailUrl });
   }, [data]);
 
+  if (!hasHydrated) return <SiteShell><section className="loading-page content-container"><div className="loading-orbit"><Loader2 size={28} /></div><p className="eyebrow">Reading available captions</p><h1>Preparing your transcript.</h1><p>We are retrieving the video details and organizing its captions into a clean reading experience.</p></section></SiteShell>;
   if (!sourceUrl) return <SiteShell><section className="page-empty content-container"><Subtitles size={36} /><h1>No video link yet.</h1><p>Return home and paste a YouTube link to begin.</p><Link href="/" className="primary-button">Go to home</Link></section></SiteShell>;
   if (lookup.isPending || (!data && !lookup.error)) return <SiteShell><section className="loading-page content-container"><div className="loading-orbit"><Loader2 size={28} /></div><p className="eyebrow">Reading available captions</p><h1>Preparing your transcript.</h1><p>We are retrieving the video details and organizing its captions into a clean reading experience.</p></section></SiteShell>;
   if (lookup.error || !data) return <SiteShell><section className="page-empty content-container"><span className="error-mark"><X size={27} /></span><p className="eyebrow">Transcript unavailable</p><h1>We could not retrieve captions.</h1><p>{lookup.error?.message || "Please confirm the URL is public and try again."}</p><button className="primary-button" onClick={() => navigate("/")}>Try another link</button></section></SiteShell>;

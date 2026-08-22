@@ -4,8 +4,9 @@ type Theme = "light" | "dark";
 type ThemeContextValue = { theme: Theme; setTheme: (theme: Theme) => void; toggleTheme: () => void };
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 const STORAGE_KEY = "tubetranscriber-theme-v2";
+export const HYDRATION_SAFE_DEFAULT_THEME: Theme = "light";
 
-export function ThemeProvider({ children, defaultTheme = "dark" }: { children: ReactNode; defaultTheme?: Theme; switchable?: boolean }) {
+export function ThemeProvider({ children, defaultTheme = HYDRATION_SAFE_DEFAULT_THEME }: { children: ReactNode; defaultTheme?: Theme; switchable?: boolean }) {
   const [theme, setTheme] = useState<Theme>(defaultTheme);
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);

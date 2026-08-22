@@ -47,3 +47,8 @@
 - [x] Verify the completed action panel with the final mobile row layout applied, confirming every label and trailing download icon position.
 - [x] Capture and inspect a completed transcript reader at a true mobile viewport to confirm final export-row alignment.
 - [x] Cache successful server-side transcript lookups briefly so repeated reader visits can render reliably without another external caption request.
+- [x] Diagnose the transcript reader’s SSR hydration mismatch between server HTML and the client’s first render.
+- [x] Make theme and transcript-reader initialization deterministic across SSR and client hydration.
+- [x] Verify the transcript reader has no hydration errors after the fix in both production SSR and browser contexts.
+- [x] Confirm the persisted theme cannot alter the transcript reader’s first hydration render and document the deterministic behavior.
+- [x] Run a browser hydration check against the production SSR build on the reported transcript route and confirm no mismatch occurs.
