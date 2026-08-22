@@ -1,12 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import type { TranscriptSegment } from "@shared/transcript";
-import { extractWithYtDlp, YouTubeRateLimitError, YouTubeUpstreamAccessError } from "./ytdlp";
 import {
-  extractWithPythonTranscript,
-  YouTubeCaptionAccessError,
-  YouTubeCaptionsUnavailableError,
+  extractWithYtDlp,
+  YouTubeRateLimitError,
+  YouTubeUpstreamAccessError,
   YouTubeVideoUnavailableError,
-} from "./python-transcript";
+} from "./ytdlp";
 
 export type VideoMetadata = {
   videoId: string;
@@ -77,8 +76,6 @@ async function fetchVideoDuration(videoId: string) {
 }
 
 export function normalizeTranscript(raw: Array<{ text: string; offset: number; duration: number }>): TranscriptSegment[] {
-  // The source serves its modern srv3 tracks in milliseconds and legacy tracks
-  // in seconds. Track duration reliably identifies the millisecond format.
   const isMilliseconds = raw.some(item => Number(item.duration) > 120);
   const divisor = isMilliseconds ? 1000 : 1;
   return raw
@@ -98,49 +95,25 @@ export async function extractTranscript(url: string) {
 
   const [oembedMetadata, pageDuration] = await Promise.all([fetchVideoMetadata(videoId), fetchVideoDuration(videoId)]);
   const metadata = { ...oembedMetadata, durationSeconds: pageDuration };
-  let segments: TranscriptSegment[] = [];
-  let pythonError: unknown;
-  let ytDlpError: unknown;
 
   try {
-    // Primary path: the maintained Python adapter reads the same publicly
-    // available caption tracks exposed to the YouTube web client without a key.
-    segments = await extractWithPythonTranscript(videoId);
-  } catch (error) {
-    pythonError = error;
-    console.warn("[Transcript] Python caption adapter failed; trying yt-dlp fallback", error);
-  }
-
-  if (segments.length === 0) {
-    try {
-      segments = await extractWithYtDlp(videoId);
-    } catch (error) {
-      ytDlpError = error;
-      console.warn("[Transcript] yt-dlp subtitle fallback failed", error);
+    const segments = await extractWithYtDlp(videoId);
+    if (segments.length === 0) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "No public captions are available for this video." });
     }
-  }
-
-  if (segments.length > 0) {
     const last = segments.at(-1);
     const result: ExtractedTranscript = { metadata: { ...metadata, durationSeconds: last ? last.start + last.duration : null }, segments };
     successfulTranscriptCache.set(videoId, { expiresAt: Date.now() + SUCCESS_CACHE_TTL_MS, result });
     return result;
+  } catch (error) {
+    if (error instanceof TRPCError) throw error;
+    if (error instanceof YouTubeVideoUnavailableError) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "This video is unavailable, private, or cannot be accessed." });
+    }
+    if (error instanceof YouTubeRateLimitError || error instanceof YouTubeUpstreamAccessError) {
+      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "YouTube temporarily restricted yt-dlp caption retrieval from this service. Please try again later or use TubeTranscriber Local." });
+    }
+    console.error("[Transcript] yt-dlp extraction did not complete", error);
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Transcript retrieval did not complete. Please check the link and try again." });
   }
-
-  if (pythonError instanceof YouTubeVideoUnavailableError) {
-    throw new TRPCError({ code: "NOT_FOUND", message: "This video is unavailable, private, or cannot be accessed." });
-  }
-  if (
-    pythonError instanceof YouTubeCaptionAccessError ||
-    ytDlpError instanceof YouTubeRateLimitError ||
-    ytDlpError instanceof YouTubeUpstreamAccessError
-  ) {
-    throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "YouTube temporarily restricted automated caption retrieval from this service. Please try another video or try again later." });
-  }
-  if (pythonError instanceof YouTubeCaptionsUnavailableError || !ytDlpError) {
-    throw new TRPCError({ code: "NOT_FOUND", message: "No public captions are available for this video." });
-  }
-
-  console.error("[Transcript] Extraction did not complete", { pythonError, ytDlpError });
-  throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Transcript retrieval did not complete. Please check the link and try again." });
 }

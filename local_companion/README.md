@@ -1,6 +1,6 @@
 # TubeTranscriber Local Companion
 
-This is a small **localhost-only** Python app. It runs on the visitor’s computer and sends public-caption requests from that computer’s own network connection. It has no cloud transcript provider, no API key, no proxy configuration, and no account-cookie import.
+This is a **localhost-only**, **yt-dlp-only** Python app. It runs on the visitor’s computer and requests public YouTube subtitle tracks from that computer’s network connection. It has no cloud transcript provider, API key, proxy configuration, or account-cookie import.
 
 > It does not make YouTube access guaranteed. A video may have no captions, or YouTube may temporarily restrict requests from a particular connection.
 
@@ -8,15 +8,15 @@ This is a small **localhost-only** Python app. It runs on the visitor’s comput
 
 | Capability | Included behavior |
 |---|---|
-| Local network use | The app binds only to `127.0.0.1:8765`; caption requests originate from the computer that runs it. |
-| Caption method | `youtube-transcript-api`, which retrieves public caption tracks directly. |
-| Track choice | Prefers human-created captions in the requested language, then auto-generated captions, then another available public track. |
+| Local network use | The app binds only to `127.0.0.1:8765`; yt-dlp requests originate from the computer that runs it. |
+| Caption method | `yt-dlp` retrieves manual and automatically generated public subtitle tracks. |
+| Language selection | The requested language list is passed to yt-dlp, for example `en,es,fr`. |
 | Output | Plain-text reader, copy button, and browser-generated TXT, JSON, and SRT downloads. |
 | Privacy boundary | No remote listener, API key, cookies, proxy, or public TubeTranscriber-server request. |
 
 ## Run it
 
-Install Python 3.10 or newer. In a terminal, open the `local_companion` folder and run the following commands.
+Install Python 3.10 or newer and Node.js 22 LTS. Node provides yt-dlp’s JavaScript runtime for YouTube challenge handling, while the requirements install the curl-cffi support used for Chrome impersonation. In a terminal, open the `local_companion` folder and run the following commands.
 
 ### macOS or Linux
 
@@ -46,6 +46,10 @@ With the virtual environment active, run:
 python -m unittest -v test_app.py
 ```
 
+## Windows-worker preparation
+
+The app deliberately remains localhost-only. Before it is connected to `tubetranscriber.com`, do **not** expose port `8765` through a router or firewall rule. The future worker connection should use an authenticated tunnel and a separate server-to-server endpoint, so public visitors cannot call this local service directly.
+
 ## Important limitation
 
-The public `tubetranscriber.com` website cannot redirect a visitor’s server-side caption request through this program automatically. Each visitor who wants to use their own connection must download the source and run this local app themselves. The local web interface deliberately accepts requests only from the same computer.
+The public `tubetranscriber.com` website cannot redirect a visitor’s server-side caption request through this program automatically. Each visitor who wants to use their own connection must run this local app, or install the planned browser-extension bridge. The local web interface deliberately accepts requests only from the same computer.

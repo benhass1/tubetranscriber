@@ -21,8 +21,19 @@ export class YouTubeUpstreamAccessError extends Error {
   }
 }
 
+export class YouTubeVideoUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "YouTubeVideoUnavailableError";
+  }
+}
+
 export function isYtDlpRateLimited(stderr: string) {
   return /\b(?:http\s+error\s+)?429\b|too many requests|rate limit/i.test(stderr);
+}
+
+export function isYtDlpVideoUnavailable(stderr: string) {
+  return /private video|video unavailable|this video is unavailable|has been removed|not available in your country/i.test(stderr);
 }
 
 export function parseJson3Transcript(payload: Json3Payload): TranscriptSegment[] {
@@ -55,9 +66,6 @@ export async function extractWithYtDlp(videoId: string): Promise<TranscriptSegme
   const workdir = await mkdtemp(join(tmpdir(), "tubetranscriber-"));
   try {
     const result = await runYtDlp([
-      // YouTube now requires its JavaScript challenge solver for reliable cloud
-      // extraction. Node 22 is present in the production image, and the Docker
-      // image installs the matching EJS and curl-cffi dependencies for yt-dlp.
       "--js-runtimes", "node", "--impersonate", "chrome",
       "--no-playlist", "--skip-download", "--write-subs", "--write-auto-subs",
       "--sub-langs", "en", "--sub-format", "json3",
@@ -70,6 +78,7 @@ export async function extractWithYtDlp(videoId: string): Promise<TranscriptSegme
       if (result.code !== 0) {
         const detail = result.stderr.slice(-800) || "yt-dlp did not return a subtitle track";
         if (isYtDlpRateLimited(detail)) throw new YouTubeRateLimitError(detail);
+        if (isYtDlpVideoUnavailable(detail)) throw new YouTubeVideoUnavailableError(detail);
         throw new YouTubeUpstreamAccessError(detail);
       }
       return [];
