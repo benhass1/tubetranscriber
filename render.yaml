@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: tubetranscriber
+    runtime: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CANONICAL_ORIGIN
+        sync: false

@@ -52,3 +52,10 @@
 - [x] Verify the transcript reader has no hydration errors after the fix in both production SSR and browser contexts.
 - [x] Confirm the persisted theme cannot alter the transcript reader’s first hydration render and document the deterministic behavior.
 - [x] Run a browser hydration check against the production SSR build on the reported transcript route and confirm no mismatch occurs.
+- [ ] Confirm the intended Cloudflare-managed custom domain and the available connection method.
+- [ ] Configure or provide the required custom-domain DNS records for the published TubeTranscriber site.
+- [ ] Verify HTTPS routing and the published site response on the custom domain.
+- [ ] Provide the user with the manual Manus-to-Cloudflare DNS record sequence after the platform displays the custom-domain target.
+- [x] Assess a free external host that supports TubeTranscriber’s Node server, Docker runtime, and yt-dlp caption fallback; select Render because its free web service supports Docker, custom domains, and a standard Node server.
+- [x] Add a Render Blueprint, explicit external port binding, and test coverage for the container deployment configuration.
+- [ ] Prepare and deploy TubeTranscriber to the selected external host, then repoint tubetranscriber.com through Cloudflare.
