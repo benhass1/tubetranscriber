@@ -67,5 +67,23 @@
 - [x] Document the remaining Render verification status for www.tubetranscriber.com HTTPS: both DNS records are correct, the apex is verified and live, and users should use https://tubetranscriber.com/ while Render finishes the separate www certificate issuance.
 - [x] Reproduce the reported captioned video 3kTvNfp3N9T against the external production fallback: current yt-dlp reports YouTube HTTP 429 from the cloud network, which then surfaced incorrectly as unavailable captions.
 - [x] Harden the yt-dlp subtitle strategy and error mapping with the Node JavaScript runtime, browser impersonation support, installed EJS/curl-cffi dependencies, and explicit rate-limit classification.
-- [ ] Deploy and verify the corrected captioned-video lookup on https://tubetranscriber.com/.
-- [ ] Capture the post-deployment Render-side outcome for 3kTvNfp3N9T through the live route or application logs.
+- [x] Deploy and verify the corrected captioned-video lookup on https://tubetranscriber.com/: the live API now returns HTTP 429 with an accurate temporary YouTube restriction message rather than falsely reporting missing captions.
+- [x] Capture the post-deployment Render-side outcome for 3kTvNfp3N9T through the live route: the free Render cloud host remains rate-limited or restricted by YouTube for this captioned video.
+- [x] Decline a managed external transcript provider after the user selected the free Manus-runtime path instead.
+- [x] Compare a return to Manus-hosted runtime, Cloudflare routing, and other hosting options for preserving captioned-video behavior; select the Cloudflare Worker reverse proxy to the published Manus origin.
+- [x] Implement the user-approved production host and domain path: Cloudflare routes both custom-domain hostnames through the proxy Worker to Manus.
+- [x] Supersede Supadata credential setup because the user declined the managed API fallback.
+- [x] Supersede Supadata integration because the user selected the free Manus-runtime path.
+- [x] Verify that a Cloudflare Worker reverse proxy can serve the existing Manus site and public transcript API without breaking route behavior.
+- [x] Deploy the approved Cloudflare Worker reverse proxy from tubetranscriber.com and www.tubetranscriber.com to the working Manus-hosted TubeTranscriber origin.
+- [x] Verify custom-domain transcript behavior: the two user-supplied videos are currently unavailable or unsubtitled on YouTube, while a separate public captioned video (dQw4w9WgXcQ) returns a full transcript through https://tubetranscriber.com/ with HTTP 200.
+- [x] Verify the proxied home, transcript, legal-page, and static-asset routes end to end, including hydration and client navigation on the custom domain; home, About, Privacy, the transcript reader, exports, theme control, and static assets all render correctly.
+- [x] Confirm proxied HTML canonical and Open Graph URLs are rewritten to tubetranscriber.com, with no Manus-origin URL remaining in the served home HTML.
+- [x] Verify client-side navigation between public and transcript pages after hydration on tubetranscriber.com.
+- [x] Verify that the proxied transcript reader has no hydration mismatch or browser-console errors.
+- [x] Test the custom-domain theme toggle and one transcript export action.
+- [x] Fetch a proxied hashed JavaScript or CSS asset directly to confirm static-asset delivery through Cloudflare.
+- [x] Verify client-side navigation from a hydrated public page into the live transcript route on tubetranscriber.com.
+- [x] Capture a browser-console check after loading the proxied transcript route to confirm no hydration mismatch or client-side errors.
+- [x] Route tubetranscriber.com and www.tubetranscriber.com through the Cloudflare Worker to the published Manus origin; verified via the Manus transparent-proxy response header.
+- [x] Determine why video 3kTvNfp3N9T currently returns no captions from both the active Manus development and published Manus runtime: YouTube now reports “This video isn't available anymore,” so no current runtime can retrieve a transcript for it.
