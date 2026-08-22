@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isYtDlpRateLimited, parseJson3Transcript } from "./ytdlp";
+import { isYtDlpRateLimited, parseJson3Transcript, YouTubeUpstreamAccessError } from "./ytdlp";
 
 describe("parseJson3Transcript", () => {
   it("converts yt-dlp JSON3 caption events into normalized transcript segments", () => {
@@ -12,5 +12,10 @@ describe("parseJson3Transcript", () => {
   it("recognizes YouTube cloud rate-limit failures so they are not misreported as missing captions", () => {
     expect(isYtDlpRateLimited("HTTP Error 429: Too Many Requests")).toBe(true);
     expect(isYtDlpRateLimited("ERROR: This video has no subtitles")).toBe(false);
+  });
+
+  it("keeps non-caption extraction failures distinct from an empty subtitle result", () => {
+    const error = new YouTubeUpstreamAccessError("This video is unavailable from the active YouTube client");
+    expect(error.name).toBe("YouTubeUpstreamAccessError");
   });
 });

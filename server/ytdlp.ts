@@ -14,6 +14,13 @@ export class YouTubeRateLimitError extends Error {
   }
 }
 
+export class YouTubeUpstreamAccessError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "YouTubeUpstreamAccessError";
+  }
+}
+
 export function isYtDlpRateLimited(stderr: string) {
   return /\b(?:http\s+error\s+)?429\b|too many requests|rate limit/i.test(stderr);
 }
@@ -63,7 +70,7 @@ export async function extractWithYtDlp(videoId: string): Promise<TranscriptSegme
       if (result.code !== 0) {
         const detail = result.stderr.slice(-800) || "yt-dlp did not return a subtitle track";
         if (isYtDlpRateLimited(detail)) throw new YouTubeRateLimitError(detail);
-        throw new Error(detail);
+        throw new YouTubeUpstreamAccessError(detail);
       }
       return [];
     }

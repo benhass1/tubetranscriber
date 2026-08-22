@@ -1,7 +1,7 @@
 import { YoutubeTranscript, YoutubeTranscriptDisabledError, YoutubeTranscriptNotAvailableError, YoutubeTranscriptTooManyRequestError, YoutubeTranscriptVideoUnavailableError } from "youtube-transcript";
 import { TRPCError } from "@trpc/server";
 import type { TranscriptSegment } from "@shared/transcript";
-import { extractWithYtDlp, YouTubeRateLimitError } from "./ytdlp";
+import { extractWithYtDlp, YouTubeRateLimitError, YouTubeUpstreamAccessError } from "./ytdlp";
 
 export type VideoMetadata = {
   videoId: string;
@@ -94,6 +94,7 @@ export async function extractTranscript(url: string) {
   const [oembedMetadata, pageDuration] = await Promise.all([fetchVideoMetadata(videoId), fetchVideoDuration(videoId)]);
   const metadata = { ...oembedMetadata, durationSeconds: pageDuration };
   let ytDlpWasRateLimited = false;
+  let ytDlpWasBlocked = false;
   try {
     // Cloud deployment IPs are commonly rejected by the lightweight web-caption
     // client used during local development. The production image includes yt-dlp,
@@ -104,6 +105,7 @@ export async function extractTranscript(url: string) {
         segments = await extractWithYtDlp(videoId);
       } catch (error) {
         ytDlpWasRateLimited = error instanceof YouTubeRateLimitError;
+        ytDlpWasBlocked = error instanceof YouTubeUpstreamAccessError;
         console.warn("[Transcript] yt-dlp fallback failed; trying direct captions", error);
       }
     }
@@ -126,8 +128,8 @@ export async function extractTranscript(url: string) {
     if (error instanceof YoutubeTranscriptTooManyRequestError) {
       throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "YouTube is temporarily limiting transcript requests. Please wait a moment and try again." });
     }
-    if (ytDlpWasRateLimited && (error instanceof YoutubeTranscriptDisabledError || error instanceof YoutubeTranscriptNotAvailableError)) {
-      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "YouTube is temporarily limiting transcript requests from the server. Please wait a moment and try again." });
+    if ((ytDlpWasRateLimited || ytDlpWasBlocked) && (error instanceof YoutubeTranscriptDisabledError || error instanceof YoutubeTranscriptNotAvailableError)) {
+      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "YouTube is temporarily limiting or restricting transcript access from this server. Please wait and try again." });
     }
     console.error("[Transcript] Extraction failed", error);
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Transcript retrieval did not complete. Please check the link and try again." });
