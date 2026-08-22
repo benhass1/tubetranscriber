@@ -12,4 +12,19 @@ describe("Render deployment configuration", () => {
     expect(blueprint).toContain("key: CANONICAL_ORIGIN");
     expect(blueprint).toContain("sync: false");
   });
+
+  it("does not initialize Manus-only OAuth or unresolved analytics placeholders on external hosts", async () => {
+    const [server, context, html] = await Promise.all([
+      readFile(new URL("./_core/index.ts", import.meta.url), "utf8"),
+      readFile(new URL("./_core/context.ts", import.meta.url), "utf8"),
+      readFile(new URL("../client/index.html", import.meta.url), "utf8"),
+    ]);
+
+    expect(server).toContain('if (process.env.OAUTH_SERVER_URL)');
+    expect(server).toContain('await import("./oauth")');
+    expect(context).toContain('if (process.env.OAUTH_SERVER_URL)');
+    expect(context).toContain('await import("./sdk")');
+    expect(html).not.toContain("%VITE_ANALYTICS_ENDPOINT%");
+    expect(html).not.toContain("%VITE_ANALYTICS_WEBSITE_ID%");
+  });
 });

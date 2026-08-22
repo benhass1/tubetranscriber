@@ -52,10 +52,14 @@
 - [x] Verify the transcript reader has no hydration errors after the fix in both production SSR and browser contexts.
 - [x] Confirm the persisted theme cannot alter the transcript reader’s first hydration render and document the deterministic behavior.
 - [x] Run a browser hydration check against the production SSR build on the reported transcript route and confirm no mismatch occurs.
-- [ ] Confirm the intended Cloudflare-managed custom domain and the available connection method.
-- [ ] Configure or provide the required custom-domain DNS records for the published TubeTranscriber site.
-- [ ] Verify HTTPS routing and the published site response on the custom domain.
-- [ ] Provide the user with the manual Manus-to-Cloudflare DNS record sequence after the platform displays the custom-domain target.
+- [x] Confirm the intended Cloudflare-managed custom domain and the available connection method: tubetranscriber.com through Render’s custom-domain verification.
+- [x] Configure the required custom-domain DNS records for the published TubeTranscriber site: root and www CNAME records point to tubetranscriber.onrender.com as DNS-only records in Cloudflare.
+- [x] Verify HTTPS routing and the published site response on the custom domain: the apex returns HTTP 200 and www redirects securely to the apex before returning HTTP 200.
+- [x] Supersede the manual Manus-to-Cloudflare DNS path after custom-domain hosting required an upgrade; use the completed free Render deployment instead.
 - [x] Assess a free external host that supports TubeTranscriber’s Node server, Docker runtime, and yt-dlp caption fallback; select Render because its free web service supports Docker, custom domains, and a standard Node server.
 - [x] Add a Render Blueprint, explicit external port binding, and test coverage for the container deployment configuration.
-- [ ] Prepare and deploy TubeTranscriber to the selected external host, then repoint tubetranscriber.com through Cloudflare.
+- [x] Prepare and deploy TubeTranscriber to Render, register tubetranscriber.com and www.tubetranscriber.com, and repoint both hosts through Cloudflare.
+- [x] Implement OAuth gating so the public no-login runtime imports Manus OAuth only when OAUTH_SERVER_URL is configured.
+- [x] Make optional analytics markup safe when its Manus-provided variables are absent on Render.
+- [ ] Re-verify the Render subdomain, custom domain, HTTPS redirects, and canonical metadata after the external-runtime cleanup.
+- [ ] Redeploy the Render service with the runtime cleanup and confirm startup logs no longer contain the OAUTH_SERVER_URL error.

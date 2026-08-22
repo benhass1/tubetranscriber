@@ -1,6 +1,5 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { User } from "../../drizzle/schema";
-import { sdk } from "./sdk";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -13,11 +12,15 @@ export async function createContext(
 ): Promise<TrpcContext> {
   let user: User | null = null;
 
-  try {
-    user = await sdk.authenticateRequest(opts.req);
-  } catch (error) {
-    // Authentication is optional for public procedures.
-    user = null;
+  // Authentication is optional for TubeTranscriber. Avoid importing the
+  // Manus-specific SDK on external public hosts where OAuth is not configured.
+  if (process.env.OAUTH_SERVER_URL) {
+    try {
+      const { sdk } = await import("./sdk");
+      user = await sdk.authenticateRequest(opts.req);
+    } catch (error) {
+      user = null;
+    }
   }
 
   return {
