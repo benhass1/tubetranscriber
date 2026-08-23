@@ -1,8 +1,8 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useEffect } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
+import SiteSeo from "./components/SiteSeo";
 import { HYDRATION_SAFE_DEFAULT_THEME, ThemeProvider } from "./contexts/ThemeContext";
 import About from "./pages/About";
 import Blog from "./pages/Blog";
@@ -13,26 +13,6 @@ import LegalPage from "./pages/LegalPage";
 import NotFound from "./pages/NotFound";
 import Transcript from "./pages/Transcript";
 
-function PageTitle() {
-  const [location] = useLocation();
-  useEffect(() => {
-    const labels: Record<string, string> = {
-      "/": "YouTube to Transcript Generator",
-      "/history": "Local Transcript History",
-      "/about": "About, FAQ, and Caption Guide",
-      "/blog": "TubeTranscriber Blog",
-      "/transcript": "YouTube Transcript Reader",
-      "/privacy": "Privacy Policy",
-      "/terms": "Terms of Service",
-      "/copyright": "Copyright and DMCA",
-      "/contact": "Contact",
-    };
-    const label = location.startsWith("/blog/") ? "TubeTranscriber Blog" : labels[location] ?? "TubeTranscriber";
-    document.title = `${label} | TubeTranscriber`;
-  }, [location]);
-  return null;
-}
-
 const Privacy = () => <LegalPage kind="privacy" />;
 const Terms = () => <LegalPage kind="terms" />;
 const Copyright = () => <LegalPage kind="copyright" />;
@@ -41,7 +21,7 @@ const Contact = () => <LegalPage kind="contact" />;
 function Router() {
   return (
     <>
-      <PageTitle />
+      <SiteSeo />
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/transcript" component={Transcript} />

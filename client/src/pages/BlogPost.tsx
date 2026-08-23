@@ -28,6 +28,7 @@ export default function BlogPost() {
           <div className="blog-post-kicker"><span>{post.category}</span><span className="meta-dot" /><span>{post.date}</span><span className="meta-dot" /><span><Clock3 size={13} /> {post.readTime}</span></div>
           <h1>{post.title}</h1>
           <p className="blog-post-excerpt">{post.excerpt}</p>
+          <p className="author-signal">Maintained by the TubeTranscriber Engineering Team</p>
         </header>
         <div className="blog-post-rule" aria-hidden="true"><span /></div>
         <div className="blog-post-content">

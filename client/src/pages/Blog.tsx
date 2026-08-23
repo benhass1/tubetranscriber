@@ -13,6 +13,7 @@ export default function Blog() {
           <p className="eyebrow"><BookOpen size={14} /> The TubeTranscriber journal</p>
           <h1>TubeTranscriber <span>Blog</span></h1>
           <p>Guides, workflow tips, and updates on video transcript extraction.</p>
+          <p className="author-signal">Maintained by the TubeTranscriber Engineering Team</p>
         </div>
       </section>
 
