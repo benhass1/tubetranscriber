@@ -10,3 +10,5 @@ services:
         value: production
       - key: CANONICAL_ORIGIN
         sync: false
+      - key: CF_WORKER_PROXY
+        sync: false

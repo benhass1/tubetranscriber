@@ -1,21 +1,20 @@
 """TubeTranscriber Local Companion.
 
-Runs only on 127.0.0.1 and retrieves publicly available YouTube subtitle
-tracks through yt-dlp from the computer where the user launches it.
+Runs only on 127.0.0.1 and retrieves publicly available YouTube transcripts
+through youtube-transcript-api from the computer where the user launches it.
 """
 
 from __future__ import annotations
 
-import json
+import os
 import re
-import subprocess
-import tempfile
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import parse_qs, urlparse
 
 from flask import Flask, jsonify, render_template_string, request
+from youtube_transcript_api import NoTranscriptFound, TranscriptsDisabled, VideoUnavailable, YouTubeTranscriptApi
+from youtube_transcript_api.formatters import TextFormatter
 
 
 LOCAL_HOST = "127.0.0.1"
@@ -53,89 +52,39 @@ def normalize_language_codes(value: str | None) -> tuple[str, ...]:
     return codes or ("en",)
 
 
-def parse_json3_transcript(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    segments: list[dict[str, Any]] = []
-    for event in payload.get("events", []) or []:
-        text = "".join(str(part.get("utf8", "")) for part in event.get("segs", []) or [])
-        text = re.sub(r"\s+", " ", text).strip()
-        if not text:
-            continue
-        segments.append(
-            {
-                "text": text,
-                "start": max(0, float(event.get("tStartMs", 0) or 0) / 1000),
-                "duration": max(0.5, float(event.get("dDurationMs", 0) or 0) / 1000),
-            }
-        )
-    return segments
-
-
-def classify_ytdlp_failure(detail: str) -> str:
-    value = detail.lower()
-    if any(marker in value for marker in ("http error 429", "too many requests", "sign in to confirm", "rate limit", "ip has been blocked")):
-        return "restricted"
-    if any(marker in value for marker in ("private video", "video unavailable", "this video is unavailable", "has been removed", "not available in your country")):
-        return "video_unavailable"
-    return "upstream_error"
+def transcript_proxies() -> dict[str, str] | None:
+    cf_proxy = os.getenv("CF_WORKER_PROXY", "").strip()
+    if not cf_proxy:
+        return None
+    proxy_url = cf_proxy if cf_proxy.endswith("?url=") else f"{cf_proxy}?url="
+    return {"http": proxy_url, "https": proxy_url}
 
 
 def fetch_public_transcript(video_id: str, language_codes: tuple[str, ...]) -> dict[str, Any]:
-    with tempfile.TemporaryDirectory(prefix="tubetranscriber-") as workdir:
-        output_template = str(Path(workdir) / "captions.%(ext)s")
-        try:
-            result = subprocess.run(
-                [
-                    "yt-dlp",
-                    "--js-runtimes",
-                    "node",
-                    "--impersonate",
-                    "chrome",
-                    "--no-playlist",
-                    "--skip-download",
-                    "--write-subs",
-                    "--write-auto-subs",
-                    "--sub-langs",
-                    ",".join(language_codes),
-                    "--sub-format",
-                    "json3",
-                    "--output",
-                    output_template,
-                    f"https://www.youtube.com/watch?v={video_id}",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=75,
-                check=False,
-            )
-        except FileNotFoundError as error:
-            raise TranscriptLookupError("upstream_error", "yt-dlp is not installed on this computer. Reinstall TubeTranscriber Local.") from error
-        except subprocess.TimeoutExpired as error:
-            raise TranscriptLookupError("restricted", "YouTube did not return captions before the local lookup timed out. Try again later.") from error
+    try:
+        proxies = transcript_proxies()
+        kwargs: dict[str, Any] = {"languages": list(language_codes)}
+        if proxies:
+            kwargs["proxies"] = proxies
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, **kwargs)
+    except TranscriptsDisabled as error:
+        raise TranscriptLookupError("transcripts_disabled", "Subtitles/Transcripts are disabled for this video.") from error
+    except NoTranscriptFound as error:
+        raise TranscriptLookupError("no_captions", "No transcript found in the requested language.") from error
+    except VideoUnavailable as error:
+        raise TranscriptLookupError("video_unavailable", "The requested video is unavailable or private.") from error
+    except Exception as error:
+        raise TranscriptLookupError("upstream_error", f"Transcript extraction failed: {error}") from error
 
-        subtitle_files = sorted(Path(workdir).glob("*.json3"))
-        if subtitle_files:
-            try:
-                segments = parse_json3_transcript(json.loads(subtitle_files[0].read_text(encoding="utf-8")))
-            except (OSError, json.JSONDecodeError) as error:
-                raise TranscriptLookupError("upstream_error", "yt-dlp returned an unreadable subtitle file.") from error
-            if segments:
-                language = subtitle_files[0].stem.rsplit(".", 1)[-1]
-                return {
-                    "videoId": video_id,
-                    "language": language,
-                    "segments": segments,
-                    "plainText": "\n\n".join(segment["text"] for segment in segments),
-                }
-
-        if result.returncode == 0:
-            raise TranscriptLookupError("no_captions", "No public captions are available for this video.")
-        kind = classify_ytdlp_failure(result.stderr[-1600:])
-        messages = {
-            "video_unavailable": "This video is unavailable, private, or cannot be accessed.",
-            "restricted": "YouTube temporarily restricted yt-dlp caption retrieval from this computer. Try again later.",
-            "upstream_error": "yt-dlp could not retrieve captions from YouTube. Please try again later.",
-        }
-        raise TranscriptLookupError(kind, messages[kind])
+    segments = [
+        {"text": re.sub(r"\s+", " ", str(item.get("text", ""))).strip(), "start": max(0, float(item.get("start", 0) or 0)), "duration": max(0, float(item.get("duration", 0) or 0))}
+        for item in transcript
+    ]
+    segments = [segment for segment in segments if segment["text"]]
+    if not segments:
+        raise TranscriptLookupError("no_captions", "No public captions are available for this video.")
+    plain_text = re.sub(r"\s+", " ", TextFormatter().format_transcript(transcript)).strip()
+    return {"videoId": video_id, "language": language_codes[0], "segments": segments, "plainText": plain_text}
 
 
 PAGE = """<!doctype html>
@@ -154,7 +103,7 @@ PAGE = """<!doctype html>
   footer{margin-top:30px;font-size:.88rem;color:#60708a}.privacy{font-weight:700;color:#173f8d}
 </style></head><body><main>
 <div class="mark">Local-only companion</div><h1>Read YouTube captions on your computer.</h1>
-<p>This app listens only on <strong>127.0.0.1</strong>. yt-dlp caption requests leave from the computer running it; nothing is sent to TubeTranscriber’s public server.</p>
+<p>This app listens only on <strong>127.0.0.1</strong>. Transcript requests leave from the computer running it; nothing is sent to TubeTranscriber’s public server.</p>
 <section class="card"><form id="lookup"><label for="url">YouTube video URL</label><input id="url" required placeholder="https://www.youtube.com/watch?v=..." autocomplete="url">
 <label for="languages">Preferred subtitle languages</label><input id="languages" value="en" placeholder="en, es, fr"><button type="submit">Get transcript</button></form>
 <div id="status" role="status"></div><div class="result" id="result"><p id="meta"></p><div id="actions"><button class="alt" data-export="txt">Download TXT</button><button class="alt" data-export="json">Download JSON</button><button class="alt" data-export="srt">Download SRT</button><button class="alt" id="copy">Copy text</button></div><pre id="text"></pre></div></section>
@@ -163,7 +112,7 @@ PAGE = """<!doctype html>
 let current=null; const $=id=>document.getElementById(id);
 function srtTime(seconds){const ms=Math.max(0,Math.round(seconds*1000));const h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000),s=Math.floor(ms%60000/1000),r=ms%1000;return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(r).padStart(3,'0')}`}
 function download(name,content,type){const blob=new Blob([content],{type});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)}
-$('lookup').addEventListener('submit',async e=>{e.preventDefault();$('status').className='';$('status').textContent='Retrieving public captions with yt-dlp…';$('result').classList.remove('visible');const response=await fetch('/api/transcript',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:$('url').value,languages:$('languages').value})});const payload=await response.json();if(!response.ok){$('status').className='error';$('status').textContent=payload.error||'The lookup failed.';return}current=payload;$('status').textContent='Transcript ready.';$('meta').textContent=`Subtitle track: ${payload.language}`;$('text').textContent=payload.plainText;$('actions').style.display='block';$('result').classList.add('visible')});
+$('lookup').addEventListener('submit',async e=>{e.preventDefault();$('status').className='';$('status').textContent='Retrieving public captions…';$('result').classList.remove('visible');const response=await fetch('/api/transcript',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:$('url').value,languages:$('languages').value})});const payload=await response.json();if(!response.ok){$('status').className='error';$('status').textContent=payload.error||'The lookup failed.';return}current=payload;$('status').textContent='Transcript ready.';$('meta').textContent=`Subtitle track: ${payload.language}`;$('text').textContent=payload.plainText;$('actions').style.display='block';$('result').classList.add('visible')});
 document.querySelectorAll('[data-export]').forEach(button=>button.addEventListener('click',()=>{if(!current)return;const type=button.dataset.export;const base=`transcript-${current.videoId}`;if(type==='txt')download(`${base}.txt`,current.plainText,'text/plain');if(type==='json')download(`${base}.json`,JSON.stringify(current.segments,null,2),'application/json');if(type==='srt')download(`${base}.srt`,current.segments.map((x,i)=>`${i+1}\n${srtTime(x.start)} --> ${srtTime(x.start+x.duration)}\n${x.text}\n`).join('\n'),'text/plain')}));
 $('copy').addEventListener('click',async()=>{if(current){await navigator.clipboard.writeText(current.plainText);$('copy').textContent='Copied';setTimeout(()=>{$('copy').textContent='Copy text'},1200)}});
 </script></body></html>"""

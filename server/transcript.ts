@@ -1,11 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import type { TranscriptSegment } from "@shared/transcript";
 import {
-  extractWithYtDlp,
-  YouTubeRateLimitError,
-  YouTubeUpstreamAccessError,
-  YouTubeVideoUnavailableError,
-} from "./ytdlp";
+  extractWithYouTubeTranscriptApi,
+  YouTubeTranscriptApiError,
+} from "./youtubeTranscriptApi";
 
 export type VideoMetadata = {
   videoId: string;
@@ -97,7 +95,7 @@ export async function extractTranscript(url: string) {
   const metadata = { ...oembedMetadata, durationSeconds: pageDuration };
 
   try {
-    const segments = await extractWithYtDlp(videoId);
+    const segments = await extractWithYouTubeTranscriptApi(videoId);
     if (segments.length === 0) {
       throw new TRPCError({ code: "NOT_FOUND", message: "No public captions are available for this video." });
     }
@@ -107,13 +105,16 @@ export async function extractTranscript(url: string) {
     return result;
   } catch (error) {
     if (error instanceof TRPCError) throw error;
-    if (error instanceof YouTubeVideoUnavailableError) {
-      throw new TRPCError({ code: "NOT_FOUND", message: "This video is unavailable, private, or cannot be accessed." });
+    if (error instanceof YouTubeTranscriptApiError) {
+      if (error.kind === "video_unavailable") {
+        throw new TRPCError({ code: "NOT_FOUND", message: error.message });
+      }
+      if (error.kind === "transcripts_disabled" || error.kind === "no_transcript") {
+        throw new TRPCError({ code: "NOT_FOUND", message: error.message });
+      }
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
     }
-    if (error instanceof YouTubeRateLimitError || error instanceof YouTubeUpstreamAccessError) {
-      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "YouTube temporarily restricted yt-dlp caption retrieval from this service. Please try again later or use TubeTranscriber Local." });
-    }
-    console.error("[Transcript] yt-dlp extraction did not complete", error);
+    console.error("[Transcript] youtube-transcript-api extraction did not complete", error);
     throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Transcript retrieval did not complete. Please check the link and try again." });
   }
 }

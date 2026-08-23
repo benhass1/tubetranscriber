@@ -10,6 +10,7 @@ describe("Render deployment configuration", () => {
     expect(blueprint).toContain("plan: free");
     expect(blueprint).toContain("healthCheckPath: /");
     expect(blueprint).toContain("key: CANONICAL_ORIGIN");
+    expect(blueprint).toContain("key: CF_WORKER_PROXY");
     expect(blueprint).toContain("sync: false");
   });
 
@@ -32,7 +33,7 @@ describe("Render deployment configuration", () => {
     const dockerfile = await readFile(new URL("../Dockerfile.vercel", import.meta.url), "utf8");
 
     expect(dockerfile).toContain("FROM node:22-slim");
-    expect(dockerfile).toContain('"yt-dlp[default,curl-cffi]"');
+    expect(dockerfile).toContain('"youtube-transcript-api>=0.6,<1.0"');
     expect(dockerfile).toContain("ENV PORT=80");
     expect(dockerfile).toContain('CMD ["node", "dist/index.js"]');
   });
