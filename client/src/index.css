@@ -208,3 +208,19 @@ body { color: var(--ink); }
 :where(h1, h2, h3, h4, h5, h6) { font-family: "Plus Jakarta Sans", "Inter", Arial, sans-serif !important; font-weight: 700 !important; letter-spacing: -0.02em !important; }
 
 .about-hero-tagline { margin-top: 24px; color: var(--hot-deep) !important; font-weight: 800; letter-spacing: .01em; }
+
+/* Comparison table: desktop table, stacked cards on mobile and tablet. */
+.comparison-table-wrap { width: 100%; max-width: 100%; overflow: hidden; }
+.comparison-table-desktop { display: table; width: 100%; max-width: 100%; }
+.comparison-cards { display: none; width: 100%; max-width: 100%; }
+@media (max-width: 767px) {
+  .comparison-table-wrap { overflow: hidden; }
+  .comparison-table-desktop { display: none; }
+  .comparison-cards { display: grid; gap: 12px; }
+  .comparison-card { width: 100%; max-width: 100%; min-width: 0; overflow: hidden; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+  .comparison-card h3 { margin: 0 0 15px; color: var(--ink); font-size: 17px; line-height: 1.25; }
+  .comparison-card > div { min-width: 0; padding: 12px 0 0; border-top: 1px solid var(--line); }
+  .comparison-card > div + div { margin-top: 12px; }
+  .comparison-label { display: block; margin-bottom: 5px; color: var(--hot-deep); font: 700 10px/1.3 "IBM Plex Mono", monospace; letter-spacing: .035em; text-transform: uppercase; overflow-wrap: anywhere; }
+  .comparison-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; word-break: break-word; hyphens: auto; }
+}
