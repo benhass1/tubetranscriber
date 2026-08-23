@@ -63,14 +63,24 @@ def transcript_proxies() -> dict[str, str] | None:
 def fetch_public_transcript(video_id: str, language_codes: tuple[str, ...]) -> dict[str, Any]:
     try:
         proxies = transcript_proxies()
-        kwargs: dict[str, Any] = {"languages": list(language_codes)}
         if proxies:
-            kwargs["proxies"] = proxies
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, **kwargs)
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, proxies=proxies)
+        else:
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        try:
+            transcript_track = transcript_list.find_transcript([*language_codes, "en", "en-US", "en-GB"])
+        except NoTranscriptFound:
+            try:
+                transcript_track = next(iter(transcript_list))
+            except StopIteration as error:
+                raise TranscriptLookupError("no_captions", "No transcript found in any language for this video.") from error
+        transcript = transcript_track.fetch()
+    except TranscriptLookupError:
+        raise
     except TranscriptsDisabled as error:
         raise TranscriptLookupError("transcripts_disabled", "Subtitles/Transcripts are disabled for this video.") from error
     except NoTranscriptFound as error:
-        raise TranscriptLookupError("no_captions", "No transcript found in the requested language.") from error
+        raise TranscriptLookupError("no_captions", "No transcript found in any language for this video.") from error
     except VideoUnavailable as error:
         raise TranscriptLookupError("video_unavailable", "The requested video is unavailable or private.") from error
     except Exception as error:

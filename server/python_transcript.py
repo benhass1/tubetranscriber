@@ -50,20 +50,31 @@ def _proxy_mapping() -> dict[str, str] | None:
 
 
 def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
-    """Fetch the raw transcript through the optional Cloudflare proxy."""
+    """Fetch the preferred public track, then fall back to any public track."""
     proxies = _proxy_mapping()
     try:
         if proxies:
-            transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies=proxies)
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, proxies=proxies)
         else:
-            transcript = YouTubeTranscriptApi.get_transcript(video_id)
-        return transcript
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+
+        try:
+            transcript = transcript_list.find_transcript(["en", "en-US", "en-GB"])
+        except NoTranscriptFound:
+            try:
+                transcript = next(iter(transcript_list))
+            except StopIteration as error:
+                raise RuntimeError("No transcript found in any language for this video.") from error
+
+        return transcript.fetch()
     except TranscriptsDisabled as error:
         raise RuntimeError("Subtitles/Transcripts are disabled for this video.") from error
     except NoTranscriptFound as error:
-        raise RuntimeError("No transcript found in the requested language.") from error
+        raise RuntimeError("No transcript found in any language for this video.") from error
     except VideoUnavailable as error:
         raise RuntimeError("The requested video is unavailable or private.") from error
+    except RuntimeError:
+        raise
     except Exception as error:
         raise RuntimeError(f"Transcript extraction failed: {str(error)}") from error
 
