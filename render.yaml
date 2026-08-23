@@ -10,5 +10,9 @@ services:
         value: production
       - key: CANONICAL_ORIGIN
         sync: false
-      - key: CF_WORKER_PROXY
-        sync: false
+      - key: WARP_ENABLED
+        value: "true"
+      - key: WARP_REQUIRED
+        value: "true"
+      - key: WARP_HTTP_PROXY
+        value: http://127.0.0.1:9091

@@ -33,6 +33,15 @@ def extract_video_id(url_or_id: str) -> str:
 
 
 def _proxy_mapping() -> dict[str, str] | None:
+    """Return the local WARP HTTP proxy for both HTTP and HTTPS requests."""
+    warp_proxy = os.getenv("WARP_HTTP_PROXY", "").strip()
+    if os.getenv("WARP_ENABLED", "").strip().lower() == "true" and not warp_proxy:
+        warp_proxy = "http://127.0.0.1:9091"
+    if warp_proxy:
+        return {"http": warp_proxy, "https": warp_proxy}
+
+    # Backward-compatible opt-out path for environments that still use the
+    # previous HTTP relay. WARP is preferred whenever it is enabled.
     cf_proxy = os.getenv("CF_WORKER_PROXY", "").strip()
     if not cf_proxy:
         return None

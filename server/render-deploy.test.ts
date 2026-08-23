@@ -10,7 +10,10 @@ describe("Render deployment configuration", () => {
     expect(blueprint).toContain("plan: free");
     expect(blueprint).toContain("healthCheckPath: /");
     expect(blueprint).toContain("key: CANONICAL_ORIGIN");
-    expect(blueprint).toContain("key: CF_WORKER_PROXY");
+    expect(blueprint).toContain("key: WARP_ENABLED");
+    expect(blueprint).toContain("key: WARP_REQUIRED");
+    expect(blueprint).toContain("key: WARP_HTTP_PROXY");
+    expect(blueprint).toContain("value: http://127.0.0.1:9091");
     expect(blueprint).toContain("sync: false");
   });
 
