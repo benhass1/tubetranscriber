@@ -10,6 +10,7 @@ import sys
 import xml.etree.ElementTree as ET
 from http.cookiejar import MozillaCookieJar
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import requests
 from youtube_transcript_api import (
@@ -62,6 +63,49 @@ def _youtube_cookie_file() -> str | None:
     """Return an optional Netscape-format YouTube cookie file."""
     cookie_file = os.getenv("YOUTUBE_COOKIES_FILE", "").strip()
     return cookie_file if cookie_file and os.path.isfile(cookie_file) else None
+
+
+def _po_token_details(video_id: str) -> dict[str, str] | None:
+    """Ask the local sidecar for a content-bound PO-token when enabled."""
+    if os.getenv("PO_TOKEN_ENABLED", "").strip().lower() != "true":
+        return None
+    sidecar_url = os.getenv("PO_TOKEN_SIDECAR_URL", "http://127.0.0.1:4416").strip().rstrip("/")
+    try:
+        with requests.Session() as session:
+            session.trust_env = False
+            response = session.get(
+                f"{sidecar_url}/token",
+                params={"videoId": video_id},
+                timeout=float(os.getenv("PO_TOKEN_REQUEST_TIMEOUT_SECONDS", "12")),
+            )
+            response.raise_for_status()
+            data = response.json()
+        visitor_data = str(data.get("visitorData", "")).strip()
+        po_token = str(data.get("poToken", "")).strip()
+        if not visitor_data or len(po_token) < 100:
+            return None
+        return {"visitorData": visitor_data, "poToken": po_token}
+    except (requests.RequestException, ValueError, TypeError):
+        # PO tokens are an optional enhancement. Keep the WARP and library
+        # extraction paths available when YouTube or the sidecar changes.
+        return None
+
+
+def _caption_url_with_po_token(caption_url: str, token_details: dict[str, str] | None) -> str:
+    """Add the parameters used by YouTube's browser subtitle requests."""
+    if not token_details:
+        return caption_url
+    parts = urlsplit(caption_url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query.update(
+        {
+            "potc": "1",
+            "pot": token_details["poToken"],
+            "c": "WEB",
+            "cver": "2.20240301.00.00",
+        }
+    )
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
 def _youtube_session() -> requests.Session:
@@ -173,15 +217,22 @@ def _parse_caption_payload(payload: str) -> list[dict[str, Any]]:
 def _fetch_innertube_transcript(video_id: str) -> list[dict[str, Any]]:
     """Fetch captionTracks from youtubei/v1/player and download JSON3."""
     innertube_url = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
-    payload = {
-        "context": {
-            "client": {
-                "hl": "en",
-                "gl": "US",
-                "clientName": "WEB",
-                "clientVersion": "2.20240301.00.00",
+    token_details = _po_token_details(video_id)
+    client = {
+        "hl": "en",
+        "gl": "US",
+        "clientName": "WEB",
+        "clientVersion": "2.20240301.00.00",
+    }
+    if token_details:
+        client.update(
+            {
+                "visitorData": token_details["visitorData"],
+                "poToken": token_details["poToken"],
             }
-        },
+        )
+    payload = {
+        "context": {"client": client},
         "videoId": video_id,
     }
     session = _youtube_session()
@@ -209,6 +260,7 @@ def _fetch_innertube_transcript(video_id: str) -> list[dict[str, Any]]:
         raise RuntimeError("Caption track found but lacks a valid download URL.")
     if "fmt=" not in caption_url:
         caption_url += "&fmt=json3" if "?" in caption_url else "?fmt=json3"
+    caption_url = _caption_url_with_po_token(caption_url, token_details)
 
     try:
         caption_response = session.get(caption_url, timeout=20)
@@ -238,10 +290,12 @@ def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
         tracks = _caption_tracks(player_data)
         if not tracks:
             raise RuntimeError("Subtitles/Transcripts are disabled or unavailable for this video.")
+        token_details = _po_token_details(video_id)
         caption_url = _select_caption_track(tracks).get("baseUrl")
         if not caption_url:
             raise RuntimeError("Caption track found but lacks a valid download URL.")
 
+        caption_url = _caption_url_with_po_token(caption_url, token_details)
         try:
             caption_response = session.get(caption_url, timeout=20)
             caption_response.raise_for_status()

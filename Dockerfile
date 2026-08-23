@@ -23,6 +23,9 @@ RUN chmod +x /usr/local/bin/start-with-warp \
 ENV NODE_ENV=production \
     WARP_ENABLED=true \
     WARP_REQUIRED=true \
-    WARP_HTTP_PORT=9091
+    WARP_HTTP_PORT=9091 \
+    PO_TOKEN_ENABLED=true \
+    PO_TOKEN_PORT=4416 \
+    PO_TOKEN_SIDECAR_URL=http://127.0.0.1:4416
 
 CMD ["/usr/local/bin/start-with-warp"]

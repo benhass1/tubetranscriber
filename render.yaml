@@ -16,3 +16,9 @@ services:
         value: "true"
       - key: WARP_HTTP_PROXY
         value: http://127.0.0.1:9091
+      - key: PO_TOKEN_ENABLED
+        value: "true"
+      - key: PO_TOKEN_PORT
+        value: "4416"
+      - key: PO_TOKEN_SIDECAR_URL
+        value: http://127.0.0.1:4416

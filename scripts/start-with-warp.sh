@@ -8,6 +8,10 @@ WARP_DIR="${WARP_DIR:-/tmp/warp}"
 WARP_TRACE_URL="${WARP_TRACE_URL:-https://www.cloudflare.com/cdn-cgi/trace}"
 
 cleanup() {
+  if [[ -n "${PO_TOKEN_PID:-}" ]] && kill -0 "$PO_TOKEN_PID" 2>/dev/null; then
+    kill "$PO_TOKEN_PID" 2>/dev/null || true
+    wait "$PO_TOKEN_PID" 2>/dev/null || true
+  fi
   if [[ -n "${WIREPROXY_PID:-}" ]] && kill -0 "$WIREPROXY_PID" 2>/dev/null; then
     kill "$WIREPROXY_PID" 2>/dev/null || true
     wait "$WIREPROXY_PID" 2>/dev/null || true
@@ -15,7 +19,34 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+start_po_token_sidecar() {
+  if [[ "${PO_TOKEN_ENABLED:-false}" != "true" ]]; then
+    return 0
+  fi
+
+  local sidecar_port="${PO_TOKEN_PORT:-4416}"
+  local sidecar_log="${WARP_DIR:-/tmp}/po-token-sidecar.log"
+  node scripts/po-token-sidecar.mjs >"$sidecar_log" 2>&1 &
+  PO_TOKEN_PID=$!
+
+  for attempt in $(seq 1 20); do
+    if ! kill -0 "$PO_TOKEN_PID" 2>/dev/null; then
+      echo "PO-token sidecar exited during startup; continuing without PO-token enhancement." >&2
+      tail -n 30 "$sidecar_log" >&2 || true
+      return 0
+    fi
+    if curl --silent --show-error --max-time 2 "http://127.0.0.1:${sidecar_port}/health" >/dev/null 2>&1; then
+      echo "PO-token sidecar is listening on 127.0.0.1:${sidecar_port}."
+      return 0
+    fi
+    sleep 0.25
+  done
+
+  echo "PO-token sidecar did not become reachable; continuing with the standard extractor." >&2
+}
+
 start_application() {
+  start_po_token_sidecar
   exec node dist/index.js
 }
 
