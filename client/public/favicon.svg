@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">TubeTranscriber</title>
+  <desc id="desc">Blue square with three white waveform lines</desc>
+  <rect width="64" height="64" rx="15" fill="#2563eb"/>
+  <path d="M11 24c5.2 0 5.2 8 10.4 8s5.2-8 10.4-8 5.2 8 10.4 8 5.2-8 10.4-8" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"/>
+  <path d="M11 36c5.2 0 5.2 8 10.4 8s5.2-8 10.4-8 5.2 8 10.4 8 5.2-8 10.4-8" fill="none" stroke="#dbeafe" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"/>
+</svg>
