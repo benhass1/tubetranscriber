@@ -170,6 +170,56 @@ def _parse_caption_payload(payload: str) -> list[dict[str, Any]]:
     raise RuntimeError("YouTube returned an empty or corrupted transcript response.")
 
 
+def _fetch_innertube_transcript(video_id: str) -> list[dict[str, Any]]:
+    """Fetch captionTracks from youtubei/v1/player and download JSON3."""
+    innertube_url = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
+    payload = {
+        "context": {
+            "client": {
+                "hl": "en",
+                "gl": "US",
+                "clientName": "WEB",
+                "clientVersion": "2.20240301.00.00",
+            }
+        },
+        "videoId": video_id,
+    }
+    session = _youtube_session()
+    try:
+        response = session.post(innertube_url, json=payload, timeout=20)
+        response.raise_for_status()
+        player_data = response.json()
+    except (requests.RequestException, ValueError) as error:
+        session.close()
+        raise RuntimeError(f"InnerTube request failed: {error}") from error
+
+    playability = player_data.get("playabilityStatus", {}).get("status")
+    if playability in {"UNPLAYABLE", "LOGIN_REQUIRED"}:
+        session.close()
+        raise RuntimeError("The requested video is unavailable or private.")
+
+    tracks = _caption_tracks(player_data)
+    if not tracks:
+        session.close()
+        raise RuntimeError("No caption tracks found via InnerTube API.")
+
+    caption_url = _select_caption_track(tracks).get("baseUrl")
+    if not caption_url:
+        session.close()
+        raise RuntimeError("Caption track found but lacks a valid download URL.")
+    if "fmt=" not in caption_url:
+        caption_url += "&fmt=json3" if "?" in caption_url else "?fmt=json3"
+
+    try:
+        caption_response = session.get(caption_url, timeout=20)
+        caption_response.raise_for_status()
+        return _parse_caption_payload(caption_response.text)
+    except requests.RequestException as error:
+        raise RuntimeError(f"Failed to fetch the JSON3 caption track: {error}") from error
+    finally:
+        session.close()
+
+
 def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
     """Fetch a signed caption track URL from YouTube's player response."""
     watch_url = f"https://www.youtube.com/watch?v={video_id}"
@@ -240,12 +290,13 @@ def _youtube_transcript_api_fetch(video_id: str) -> list[dict[str, Any]]:
 
 
 def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
-    """Prefer direct signed timedtext extraction, then use the library fallback."""
-    direct_error: RuntimeError | None = None
-    try:
-        return _fetch_direct_transcript(video_id)
-    except RuntimeError as error:
-        direct_error = error
+    """Prefer InnerTube JSON3, then signed page extraction, then the library."""
+    prior_errors: list[RuntimeError] = []
+    for fetcher in (_fetch_innertube_transcript, _fetch_direct_transcript):
+        try:
+            return fetcher(video_id)
+        except RuntimeError as error:
+            prior_errors.append(error)
 
     try:
         return _youtube_transcript_api_fetch(video_id)
@@ -258,12 +309,15 @@ def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
     except RuntimeError as error:
         message = str(error)
         lowered = message.lower()
+        prior_messages = " ".join(str(item).lower() for item in prior_errors)
+        if "unavailable or private" in prior_messages or "unavailable or private" in lowered:
+            raise RuntimeError("The requested video is unavailable or private.") from error
+        if "no caption tracks" in prior_messages or "disabled or unavailable" in prior_messages:
+            raise RuntimeError("Subtitles/Transcripts are disabled for this video.") from error
         if "no element found" in lowered or "empty" in lowered or "xml" in lowered:
             raise RuntimeError(
                 "YouTube returned an empty or corrupted transcript response. Please retry in a few moments."
             ) from error
-        if direct_error and "disabled or unavailable" in str(direct_error).lower():
-            raise RuntimeError("Subtitles/Transcripts are disabled for this video.") from error
         raise
     except Exception as error:
         error_message = str(error)
