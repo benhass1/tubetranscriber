@@ -201,3 +201,8 @@ body, button, input { font-family: Inter, Arial, sans-serif; }
   .blog-callout .primary-button { margin-top: 25px; }
   .footer-inner .author-signal { width: 100%; text-align: center; }
 }
+
+/* Global typography: readable body copy with a compact editorial heading rhythm. */
+body, button, input, textarea, select { font-family: "Inter", Arial, sans-serif; font-weight: 400; }
+body { color: var(--ink); }
+:where(h1, h2, h3, h4, h5, h6) { font-family: "Plus Jakarta Sans", "Inter", Arial, sans-serif !important; font-weight: 700 !important; letter-spacing: -0.02em !important; }

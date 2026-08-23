@@ -10,9 +10,9 @@ export default function Blog() {
     <SiteShell>
       <section className="blog-hero">
         <div className="content-container blog-hero-inner">
-          <p className="eyebrow"><BookOpen size={14} /> The TubeTranscriber journal</p>
-          <h1>TubeTranscriber <span>Blog</span></h1>
-          <p>Guides, workflow tips, and updates on video transcript extraction.</p>
+          <p className="eyebrow"><BookOpen size={14} /> The journal</p>
+          <h1>The Transcript <span>Journal</span></h1>
+          <p>Practical guides, workflow tips, and articles on video caption extraction and content strategy.</p>
           <p className="author-signal">Maintained by the TubeTranscriber Engineering Team</p>
         </div>
       </section>

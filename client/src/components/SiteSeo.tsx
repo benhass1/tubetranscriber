@@ -32,29 +32,41 @@ const publisher = {
 const pageCopy: Record<string, { title: string; description: string }> = {
   "/": {
     title: "YouTube to Transcript Generator",
-    description: "Extract available YouTube captions, search the transcript, and download TXT, JSON, or SRT files with TubeTranscriber.",
+    description: "Extract, search, and download public YouTube video transcripts instantly in TXT, JSON, or SRT format. Free, fast, and no account required for creators.",
   },
   "/history": {
     title: "Local Transcript History",
-    description: "Re-open recent TubeTranscriber lookups stored privately in your browser.",
+    description: "Re-open recent TubeTranscriber lookups stored privately in your browser and return to public YouTube transcript work without an account today.",
   },
   "/about": {
     title: "About, FAQ, and Caption Guide",
-    description: "Learn how TubeTranscriber turns available YouTube captions into readable, searchable transcript files.",
+    description: "Learn how TubeTranscriber turns available YouTube captions into searchable transcript text and practical TXT, JSON, or SRT files for creators.",
   },
   "/blog": {
     title: "TubeTranscriber Blog",
-    description: "Guides, workflow tips, and updates on video transcript extraction, caption formats, and content creation.",
+    description: "Explore practical guides, tutorials, and tips on converting YouTube video captions into clean text, JSON, and SRT files for creators and teams.",
   },
   "/transcript": {
     title: "YouTube Transcript Reader",
-    description: "Read, search, copy, and download the available captions for a public YouTube video.",
+    description: "Read, search, copy, and download available captions for a public YouTube video as a clean transcript in TXT, JSON, or SRT format for creators.",
   },
-  "/privacy": { title: "Privacy Policy", description: "How TubeTranscriber handles browser-local transcript history and public video requests." },
-  "/terms": { title: "Terms of Service", description: "Terms for using TubeTranscriber to read and work with publicly available captions." },
-  "/copyright": { title: "Copyright and DMCA", description: "Copyright guidance for transcripts and captions handled through TubeTranscriber." },
-  "/contact": { title: "Contact", description: "Contact information for TubeTranscriber questions and copyright concerns." },
+  "/privacy": { title: "Privacy Policy", description: "Read how TubeTranscriber handles browser-local transcript history, public YouTube links, available captions, analytics, and privacy-conscious changes.", },
+  "/terms": { title: "Terms of Service", description: "Review the terms for using TubeTranscriber to read and work with publicly available YouTube captions and exported transcript files responsibly.", },
+  "/copyright": { title: "Copyright and DMCA", description: "Understand copyright guidance for transcripts and captions handled through TubeTranscriber, including creator rights and good-faith concerns.", },
+  "/contact": { title: "Contact", description: "Contact TubeTranscriber with questions about the service, transcript workflows, public caption availability, or copyright concerns and requests.", },
 };
+
+const postMetaDescriptions: Record<string, string> = {
+  "extract-download-youtube-transcripts": "Learn how to extract public YouTube transcripts quickly, search captions, and download clean TXT, JSON, or SRT files for research and content workflows.",
+  "convert-youtube-videos-to-srt": "Convert available YouTube captions into SRT subtitles with timing intact, then move the file into your video editing workflow with less manual cleanup.",
+  "youtube-transcripts-content-creation": "Discover five practical ways to use YouTube transcripts for research, repurposing, theme comparison, content outlines, and faster team review workflows.",
+};
+
+function getPageCopy(path: string) {
+  const post = path.startsWith("/blog/") ? findBlogPost(path.slice("/blog/".length)) : undefined;
+  const copy = pageCopy[path] ?? (post ? { title: post.title, description: postMetaDescriptions[post.slug] ?? post.excerpt } : pageCopy["/"]!);
+  return { post, copy };
+}
 
 function upsertMeta(name: string, content: string, attribute: "name" | "property" = "name") {
   let element = document.head.querySelector<HTMLMetaElement>(`meta[${attribute}="${name}"]`);
@@ -77,8 +89,7 @@ function upsertCanonical(url: string) {
 }
 
 function buildSchema(path: string, canonical: string) {
-  const post = path.startsWith("/blog/") ? findBlogPost(path.slice("/blog/".length)) : undefined;
-  const copy = pageCopy[path] ?? (post ? { title: post.title, description: post.excerpt } : pageCopy["/"]);
+  const { post, copy } = getPageCopy(path);
   const website = {
     "@type": "WebSite",
     name: "TubeTranscriber",
@@ -99,7 +110,7 @@ function buildSchema(path: string, canonical: string) {
     ? {
         "@type": "BlogPosting",
         headline: post.title,
-        description: post.excerpt,
+        description: copy.description,
         url: canonical,
         mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
         articleSection: post.category,
@@ -135,8 +146,7 @@ export default function SiteSeo() {
   const [location] = useLocation();
   const path = location.split("?")[0] || "/";
   const canonical = `${SITE_URL}${path === "/" ? "/" : path}`;
-  const post = path.startsWith("/blog/") ? findBlogPost(path.slice("/blog/".length)) : undefined;
-  const copy = pageCopy[path] ?? (post ? { title: post.title, description: post.excerpt } : pageCopy["/"]);
+  const { post, copy } = getPageCopy(path);
 
   useEffect(() => {
     document.title = `${copy.title} | TubeTranscriber`;
