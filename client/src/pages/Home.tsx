@@ -1,5 +1,5 @@
 import SiteShell from "@/components/SiteShell";
-import { ArrowRight, CheckCircle2, Chrome, FileDown, Quote, Search, ShieldCheck, Sparkles, Subtitles } from "lucide-react";
+import { ArrowRight, CheckCircle2, FileDown, Quote, Search, ShieldCheck, Sparkles, Subtitles } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { Link, useLocation } from "wouter";
 
@@ -33,7 +33,6 @@ export default function Home() {
             <button type="submit" className="primary-button">Extract transcript <ArrowRight size={18} /></button>
           </form>
           {error && <p className="input-error" role="alert">{error}</p>}
-          <div className="extension-install-row"><span className="extension-or">or</span><a className="extension-cta" href="/downloads/tubetranscriber-chrome-extension.zip" download="tubetranscriber-chrome-extension.zip"><Chrome size={19} /><span><strong>Add to Chrome</strong><small>Get transcripts without leaving YouTube</small></span><ArrowRight size={15} /></a></div>
           <div className="trust-row"><CheckCircle2 size={16} /><span>Supports videos, Shorts, and embed links</span><span className="trust-dot" /><span>TXT, JSON, and SRT exports</span></div>
         </div>
       </section>
