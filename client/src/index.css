@@ -206,3 +206,5 @@ body, button, input { font-family: Inter, Arial, sans-serif; }
 body, button, input, textarea, select { font-family: "Inter", Arial, sans-serif; font-weight: 400; }
 body { color: var(--ink); }
 :where(h1, h2, h3, h4, h5, h6) { font-family: "Plus Jakarta Sans", "Inter", Arial, sans-serif !important; font-weight: 700 !important; letter-spacing: -0.02em !important; }
+
+.about-hero-tagline { margin-top: 24px; color: var(--hot-deep) !important; font-weight: 800; letter-spacing: .01em; }
