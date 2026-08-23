@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "TubeTranscriber — YouTube Transcript Reader",
+  "version": "1.0.0",
+  "description": "Open the current YouTube video in TubeTranscriber and read its captions as a clean transcript.",
+  "permissions": ["tabs"],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://m.youtube.com/*",
+    "https://youtu.be/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/watch*",
+        "https://m.youtube.com/watch*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Extract this YouTube transcript"
+  }
+}
