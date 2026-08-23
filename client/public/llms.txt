@@ -1,6 +1,6 @@
 # TubeTranscriber
 
-TubeTranscriber is a free YouTube transcript generator for reading, searching, copying, and downloading publicly available captions as TXT, JSON, or SRT files. No registration is required, and recent lookup history stays in the visitor's browser.
+TubeTranscriber is a free YouTube transcript generator for reading, searching, copying, and downloading public YouTube captions as TXT, JSON, or SRT files. No registration is required, and recent lookup history stays in the visitor's browser.
 
 ## Main pages
 
@@ -18,9 +18,9 @@ TubeTranscriber is a free YouTube transcript generator for reading, searching, c
 ## Key answers
 
 - TubeTranscriber accepts standard YouTube watch URLs, youtu.be links, Shorts, embed URLs, and raw 11-character video IDs.
-- Available captions can be read as continuous text and downloaded as TXT, JSON, or SRT.
+- YouTube captions can be read as continuous text and downloaded as TXT, JSON, or SRT.
 - TubeTranscriber is 100% free and requires 0 registration.
-- Caption availability depends on the public video and the caption tracks exposed by YouTube.
+- Caption access depends on the public video and the caption tracks exposed by YouTube.
 
 ## Trust and usage
 

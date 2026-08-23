@@ -14,24 +14,24 @@ export const blogPosts: BlogPost[] = [
   {
     slug: "extract-download-youtube-transcripts",
     title: "How to Extract and Download YouTube Transcripts in Seconds",
-    excerpt: "A practical workflow for turning available YouTube captions into clean, searchable text without losing the context that makes a video useful.",
+    excerpt: "A practical workflow for turning YouTube captions into clean, searchable text without losing the context that makes a video useful.",
     date: "August 22, 2026",
     readTime: "5 min read",
     category: "Workflow guide",
     accent: "blue",
-    intro: "A good transcript workflow should get out of the way. Once a public video has captions available, the useful work is turning those time-based lines into text you can scan, search, share, and revisit.",
+    intro: "A good transcript workflow should get out of the way. Once a public video exposes captions, the useful work is turning those time-based lines into text you can scan, search, share, and revisit.",
     sections: [
       {
         heading: "Start with the source you already have",
         paragraphs: [
           "Copy the standard YouTube URL, a Shorts link, or an embed link. Keeping the original address makes it easier to return to the video later and preserves a direct path back to the creator.",
-          "Before you begin, confirm that the video is public and that captions are available. A transcript tool can organize an existing caption track, but it cannot create captions for a video that exposes none."
+          "Before you begin, confirm that the video is public and exposes captions. A transcript tool can organize an existing caption track, but it cannot create captions for a video that exposes none."
         ]
       },
       {
         heading: "Choose the format that matches the next step",
         paragraphs: [
-          "Plain text is ideal for reading, searching, and pasting into notes. JSON keeps the structured segments and timing data available for a more technical workflow. SRT is the practical choice when the transcript is moving into a video editor.",
+          "Plain text is ideal for reading, searching, and pasting into notes. JSON keeps the structured segments and timing data for a more technical workflow. SRT is the practical choice when the transcript is moving into a video editor.",
           "The best format is the one that keeps your next action simple. For research, start with plain text; for editing, keep the timed subtitle file close at hand."
         ]
       },

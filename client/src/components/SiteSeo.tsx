@@ -40,7 +40,7 @@ const pageCopy: Record<string, { title: string; description: string }> = {
   },
   "/about": {
     title: "About, FAQ, and Caption Guide",
-    description: "Learn how TubeTranscriber turns available YouTube captions into searchable transcript text and practical TXT, JSON, or SRT files for creators.",
+    description: "Learn how TubeTranscriber turns YouTube captions into searchable transcript text and practical TXT, JSON, or SRT files for creators and teams.",
   },
   "/blog": {
     title: "TubeTranscriber Blog",
@@ -48,17 +48,17 @@ const pageCopy: Record<string, { title: string; description: string }> = {
   },
   "/transcript": {
     title: "YouTube Transcript Reader",
-    description: "Read, search, copy, and download available captions for a public YouTube video as a clean transcript in TXT, JSON, or SRT format for creators.",
+    description: "Read, search, copy, and download captions for a public YouTube video as a clean transcript in TXT, JSON, or SRT format for creators and teams.",
   },
-  "/privacy": { title: "Privacy Policy", description: "Read how TubeTranscriber handles browser-local transcript history, public YouTube links, available captions, analytics, and privacy-conscious changes.", },
-  "/terms": { title: "Terms of Service", description: "Review the terms for using TubeTranscriber to read and work with publicly available YouTube captions and exported transcript files responsibly.", },
+  "/privacy": { title: "Privacy Policy", description: "Read how TubeTranscriber handles browser-local transcript history, public YouTube links, caption data, analytics, and privacy-conscious changes.", },
+  "/terms": { title: "Terms of Service", description: "Review the terms for using TubeTranscriber to read and work with public YouTube captions and exported transcript files responsibly and with care.", },
   "/copyright": { title: "Copyright and DMCA", description: "Understand copyright guidance for transcripts and captions handled through TubeTranscriber, including creator rights and good-faith concerns.", },
-  "/contact": { title: "Contact", description: "Contact TubeTranscriber with questions about the service, transcript workflows, public caption availability, or copyright concerns and requests.", },
+  "/contact": { title: "Contact", description: "Contact TubeTranscriber with questions about the service, transcript workflows, public caption access, or copyright concerns and requests when needed.", },
 };
 
 const postMetaDescriptions: Record<string, string> = {
   "extract-download-youtube-transcripts": "Learn how to extract public YouTube transcripts quickly, search captions, and download clean TXT, JSON, or SRT files for research and content workflows.",
-  "convert-youtube-videos-to-srt": "Convert available YouTube captions into SRT subtitles with timing intact, then move the file into your video editing workflow with less manual cleanup.",
+  "convert-youtube-videos-to-srt": "Convert YouTube captions into SRT subtitles with timing intact, then move the file into your video editing workflow with less manual cleanup.",
   "youtube-transcripts-content-creation": "Discover five practical ways to use YouTube transcripts for research, repurposing, theme comparison, content outlines, and faster team review workflows.",
 };
 
