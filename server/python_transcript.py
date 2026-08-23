@@ -49,24 +49,41 @@ def _proxy_mapping() -> dict[str, str] | None:
     return {"http": proxy_url, "https": proxy_url}
 
 
-def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
-    """Fetch the preferred public track, then fall back to any public track."""
+def _youtube_cookie_file() -> str | None:
+    """Return an optional Netscape-format YouTube cookie file."""
+    cookie_file = os.getenv("YOUTUBE_COOKIES_FILE", "").strip()
+    return cookie_file if cookie_file and os.path.isfile(cookie_file) else None
+
+
+def _list_transcripts(video_id: str):
+    """Request tracks with the configured proxy and optional YouTube cookies."""
+    kwargs: dict[str, Any] = {}
     proxies = _proxy_mapping()
+    if proxies:
+        kwargs["proxies"] = proxies
+    cookie_file = _youtube_cookie_file()
+    if cookie_file:
+        kwargs["cookies"] = cookie_file
+    return YouTubeTranscriptApi.list_transcripts(video_id, **kwargs)
+
+
+def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
+    """Fetch English first, then the first public track in any language."""
     try:
-        if proxies:
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, proxies=proxies)
-        else:
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        transcript_list = _list_transcripts(video_id)
+        tracks = list(transcript_list)
+        if not tracks:
+            raise RuntimeError("No transcript found in any language for this video.")
 
         try:
             transcript = transcript_list.find_transcript(["en", "en-US", "en-GB"])
         except NoTranscriptFound:
-            try:
-                transcript = next(iter(transcript_list))
-            except StopIteration as error:
-                raise RuntimeError("No transcript found in any language for this video.") from error
+            transcript = tracks[0]
 
-        return transcript.fetch()
+        fetched = transcript.fetch()
+        if not fetched:
+            raise RuntimeError("YouTube returned an empty transcript response.")
+        return fetched
     except TranscriptsDisabled as error:
         raise RuntimeError("Subtitles/Transcripts are disabled for this video.") from error
     except NoTranscriptFound as error:
@@ -76,7 +93,13 @@ def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
     except RuntimeError:
         raise
     except Exception as error:
-        raise RuntimeError(f"Transcript extraction failed: {str(error)}") from error
+        error_message = str(error)
+        lowered = error_message.lower()
+        if "no element found" in lowered or "empty" in lowered or "xml" in lowered:
+            raise RuntimeError(
+                "YouTube returned an empty or corrupted transcript response. Please retry in a few moments."
+            ) from error
+        raise RuntimeError(f"Transcript extraction failed: {error_message}") from error
 
 
 def get_transcript(url_or_id: str) -> str:
