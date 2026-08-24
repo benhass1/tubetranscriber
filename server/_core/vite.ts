@@ -11,7 +11,7 @@ import type { HeadMeta } from "../../client/src/ssr/seo";
 
 const canonicalOrigin = (process.env.CANONICAL_ORIGIN ?? "https://tubetransc-5mr8an8j.manus.space").replace(/\/$/, "");
 const siteName = "TubeTranscriber";
-const defaultDescription = "Convert YouTube videos to accurate transcripts in seconds. Search, copy, and export captions as TXT, JSON, or SRT with TubeTranscriber online.";
+const defaultDescription = "Extract, search, and download public YouTube video transcripts instantly in TXT, JSON, or SRT format. Free, fast, and no account required.";
 
 const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const safeText = (value: string, max: number) => value.replace(/\s+/g, " ").trim().slice(0, max);
@@ -19,13 +19,15 @@ const safeText = (value: string, max: number) => value.replace(/\s+/g, " ").trim
 function headTags(head: HeadMeta) {
   const title = escapeHtml(safeText(head.title || siteName, 70));
   const description = escapeHtml(safeText(head.description || defaultDescription, 200));
+  const ogTitle = escapeHtml(safeText(head.ogTitle || head.title || siteName, 70));
+  const ogDescription = escapeHtml(safeText(head.ogDescription || head.description || defaultDescription, 200));
   const canonical = head.canonicalPath && canonicalOrigin ? `${canonicalOrigin}${head.canonicalPath}` : "";
   const tags = [
     `<title>${title}</title>`, `<meta name="description" content="${description}" />`,
     `<meta name="robots" content="${head.noindex || head.notFound ? "noindex, follow" : "index, follow, max-image-preview:large"}" />`,
-    `<meta property="og:type" content="website" />`, `<meta property="og:title" content="${title}" />`, `<meta property="og:description" content="${description}" />`,
-    `<meta property="og:site_name" content="${siteName}" />`, `<meta name="twitter:card" content="summary" />`,
-    `<meta name="twitter:title" content="${title}" />`, `<meta name="twitter:description" content="${description}" />`,
+    `<meta property="og:type" content="${escapeHtml(head.ogType || "website")}" />`, `<meta property="og:title" content="${ogTitle}" />`, `<meta property="og:description" content="${ogDescription}" />`,
+    `<meta property="og:site_name" content="${siteName}" />`, `<meta name="twitter:card" content="${escapeHtml(head.twitterCard || "summary_large_image")}" />`,
+    `<meta name="twitter:title" content="${ogTitle}" />`, `<meta name="twitter:description" content="${ogDescription}" />`,
   ];
   if (canonical) tags.push(`<link rel="canonical" href="${escapeHtml(canonical)}" />`, `<meta property="og:url" content="${escapeHtml(canonical)}" />`);
   if (head.jsonLd) tags.push(`<script type="application/ld+json">${JSON.stringify(head.jsonLd).replace(/</g, "\\u003c")}</script>`);

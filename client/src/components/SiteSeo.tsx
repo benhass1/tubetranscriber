@@ -32,7 +32,7 @@ const publisher = {
 const pageCopy: Record<string, { title: string; description: string }> = {
   "/": {
     title: "YouTube to Transcript Generator",
-    description: "Extract, search, and download public YouTube video transcripts instantly in TXT, JSON, or SRT format. Free, fast, and no account required for creators.",
+    description: "Extract, search, and download public YouTube video transcripts instantly in TXT, JSON, or SRT format. Free, fast, and no account required.",
   },
   "/history": {
     title: "Local Transcript History",
@@ -69,9 +69,11 @@ function getPageCopy(path: string) {
 }
 
 function upsertMeta(name: string, content: string, attribute: "name" | "property" = "name") {
-  let element = document.head.querySelector<HTMLMetaElement>(`meta[${attribute}="${name}"]`);
-  if (!element) {
-    element = document.createElement("meta");
+  const selector = `meta[${attribute}="${name}"]`;
+  const elements = Array.from(document.head.querySelectorAll<HTMLMetaElement>(selector));
+  const element = elements.shift() ?? document.createElement("meta");
+  elements.forEach(item => item.remove());
+  if (!element.parentElement) {
     element.setAttribute(attribute, name);
     document.head.appendChild(element);
   }
@@ -79,9 +81,10 @@ function upsertMeta(name: string, content: string, attribute: "name" | "property
 }
 
 function upsertCanonical(url: string) {
-  let element = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
-  if (!element) {
-    element = document.createElement("link");
+  const elements = Array.from(document.head.querySelectorAll<HTMLLinkElement>('link[rel="canonical"]'));
+  const element = elements.shift() ?? document.createElement("link");
+  elements.forEach(item => item.remove());
+  if (!element.parentElement) {
     element.rel = "canonical";
     document.head.appendChild(element);
   }
@@ -152,13 +155,15 @@ export default function SiteSeo() {
     document.title = `${copy.title} | TubeTranscriber`;
     upsertMeta("description", copy.description);
     upsertMeta("revised", MODIFIED_DATE);
-    upsertMeta("og:title", copy.title, "property");
-    upsertMeta("og:description", copy.description, "property");
+    const ogTitle = path === "/" ? "YouTube to Transcript Generator | TubeTranscriber" : copy.title;
+    const ogDescription = path === "/" ? "Extract, search, and download public YouTube video transcripts instantly in TXT, JSON, or SRT format. Free and instant." : copy.description;
+    upsertMeta("og:title", ogTitle, "property");
+    upsertMeta("og:description", ogDescription, "property");
     upsertMeta("og:url", canonical, "property");
     upsertMeta("og:type", post ? "article" : "website", "property");
-    upsertMeta("twitter:card", "summary", "name");
-    upsertMeta("twitter:title", copy.title, "name");
-    upsertMeta("twitter:description", copy.description, "name");
+    upsertMeta("twitter:card", "summary_large_image", "name");
+    upsertMeta("twitter:title", ogTitle, "name");
+    upsertMeta("twitter:description", ogDescription, "name");
     upsertCanonical(canonical);
 
     let script = document.head.querySelector<HTMLScriptElement>('#tube-transcriber-jsonld');

@@ -27,7 +27,7 @@ export default function Home() {
         <div className="content-container hero-content">
           <p className="eyebrow"><Sparkles size={14} /> YouTube transcript generator</p>
           <h1>YouTube video to<br /><span>transcript made easy.</span></h1>
-          <p className="hero-lede">Paste a YouTube link to read, search, copy, and download its captions as clear, continuous text — free to use, with no account required.</p>
+          <p className="hero-lede">TubeTranscriber makes converting any public YouTube video to transcript text fast and seamless. Paste your link above to extract, search, and download video captions in seconds.</p>
           <form className="url-form" onSubmit={submit} noValidate>
             <div className="url-field"><Search size={19} /><input value={url} onChange={event => setUrl(event.target.value)} aria-label="YouTube video URL" placeholder="Paste a YouTube URL" autoComplete="url" /></div>
             <button type="submit" className="primary-button">Extract transcript <ArrowRight size={18} /></button>

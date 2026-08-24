@@ -5,10 +5,14 @@ export type HeadMeta = {
   noindex?: boolean;
   notFound?: boolean;
   jsonLd?: Record<string, unknown>;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogType?: string;
+  twitterCard?: string;
 };
 
 const SITE = "TubeTranscriber";
-const DEFAULT_DESCRIPTION = "Convert YouTube videos to accurate transcripts in seconds. Search, copy, and export captions as TXT, JSON, or SRT with TubeTranscriber online.";
+const DEFAULT_DESCRIPTION = "Extract, search, and download public YouTube video transcripts instantly in TXT, JSON, or SRT format. Free, fast, and no account required.";
 
 const webApplicationSchema = {
   "@context": "https://schema.org",
@@ -32,7 +36,7 @@ const faqSchema = {
 
 export function getHeadMeta(url: string): HeadMeta {
   const path = (url.split("?")[0].replace(/\/+$/, "") || "/").toLowerCase();
-  if (path === "/") return { title: "YouTube to Transcript Generator | TubeTranscriber", description: DEFAULT_DESCRIPTION, canonicalPath: "/", jsonLd: webApplicationSchema };
+  if (path === "/") return { title: "YouTube to Transcript Generator | TubeTranscriber", description: DEFAULT_DESCRIPTION, canonicalPath: "/", ogTitle: "YouTube to Transcript Generator | TubeTranscriber", ogDescription: "Extract, search, and download public YouTube video transcripts instantly in TXT, JSON, or SRT format. Free and instant.", ogType: "website", twitterCard: "summary_large_image", jsonLd: webApplicationSchema };
   if (path === "/about") return { title: "About, FAQ, and Caption Guide | TubeTranscriber", description: "Learn how TubeTranscriber reads YouTube captions, stores history in your browser, and offers readable text exports.", canonicalPath: "/about", jsonLd: faqSchema };
   if (path === "/privacy") return { title: "Privacy Policy | TubeTranscriber", description: "Read TubeTranscriber’s privacy policy for browser-local history, public video links, and product analytics.", canonicalPath: "/privacy" };
   if (path === "/terms") return { title: "Terms of Service | TubeTranscriber", description: "Read the TubeTranscriber terms for responsible use of public video captions and transcript exports.", canonicalPath: "/terms" };
