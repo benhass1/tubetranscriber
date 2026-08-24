@@ -80,7 +80,7 @@ export function serveStatic(app: Express) {
     if (req.path !== "/" && /\/+$/ .test(req.path)) return res.redirect(301, req.path.replace(/\/+$/ , "") + req.originalUrl.slice(req.path.length));
     next();
   });
-  app.use(express.static(distPath, { index: false, redirect: false }));
+  app.use(express.static(distPath, { index: false, redirect: false, maxAge: "1y", etag: true }));
   app.use("*", async (req, res) => {
     const template = await fs.promises.readFile(path.resolve(distPath, "index.html"), "utf-8");
     try {
