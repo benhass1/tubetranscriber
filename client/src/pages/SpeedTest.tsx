@@ -302,7 +302,11 @@ export default function SpeedTest() {
 
   async function handleStartTest() {
     if (testState === "ping" || testState === "download" || testState === "upload") return;
-    gaugeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const gaugeTarget = gaugeRef.current;
+    if (gaugeTarget) {
+      const isPhoneOrTablet = window.matchMedia?.("(max-width: 1024px)").matches ?? false;
+      window.requestAnimationFrame(() => gaugeTarget.scrollIntoView({ behavior: "smooth", block: isPhoneOrTablet ? "start" : "center" }));
+    }
     setTestState("ping");
     setTestStep("Phase 1/3 · Ping & jitter test");
     setProgress(4);
@@ -393,9 +397,9 @@ export default function SpeedTest() {
           <div className="content-container speed-test-live-container">
             <a href="/" className="speed-test-back-link"><ArrowLeft size={15} /> Back to TubeTranscriber</a>
             <div className="speed-test-live-topline"><div><p className="speed-test-live-kicker"><MonitorUp size={14} /> Creator network toolkit</p><h1>YouTube Upload Speed Test <span>&amp; Time Estimator</span></h1></div><span className="speed-test-live-badge"><RadioTower size={14} /> Live browser test</span></div>
-            <div ref={gaugeRef} id="speed-test-results-container" className="speed-gauge-layout">
+            <div className="speed-gauge-layout">
               <div className="speed-gauge-copy"><p className="speed-test-live-kicker"><Signal size={14} /> {testStep}</p><p>Measure the connection you rely on to publish, then turn your upload speed into a realistic YouTube delivery timeline.</p><button type="button" className="speed-gauge-button" onClick={handleStartTest} disabled={isMeasuring}>{isMeasuring ? <LoaderCircle size={17} className="speed-test-spin" /> : <Play size={17} fill="currentColor" />}{buttonLabel}</button><div className="speed-progress-line"><span style={{ width: `${progress}%` }} /></div><small>{isMeasuring ? "Sampling your connection progressively across three phases." : "Only a small technical test payload is sent; your video file is never uploaded."}</small>{error && <p className="speed-test-error" role="alert">{error}</p>}</div>
-              <div className="speed-gauge-wrap" aria-label={`${gaugeLabel} live speed gauge`}>
+              <div ref={gaugeRef} id="speed-test-results-container" className="speed-gauge-wrap" aria-label={`${gaugeLabel} live speed gauge`}>
                 <svg className="speed-gauge-svg" viewBox="0 0 360 270" role="img" aria-label="Speedometer from 0 to 1000 Mbps">
                   <defs><linearGradient id="speed-gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#22d3ee" /><stop offset="52%" stopColor="#34d399" /><stop offset="100%" stopColor="#a3e635" /></linearGradient></defs>
                   <path className="speed-gauge-track" d="M 50 205 A 130 130 0 0 1 310 205" pathLength="408" />

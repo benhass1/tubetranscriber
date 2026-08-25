@@ -414,3 +414,17 @@ body { color: var(--ink); }
   .speed-metrics-grid { grid-template-columns: 1fr; }
   .speed-health-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Mobile/tablet result anchor: leave the gauge readable below the browser chrome. */
+#speed-test-results-container { scroll-margin-top: 16px; }
+@media (max-width: 1024px) {
+  #speed-test-results-container { scroll-margin-top: 12px; }
+  .speed-gauge-wrap { width: min(100%, 380px); min-height: 228px; }
+  .speed-gauge-svg { width: 100%; height: auto; }
+  .speed-results-summary, .speed-health-row { width: 100%; }
+}
+@media (max-width: 768px) {
+  #speed-test-results-container { scroll-margin-top: 10px; }
+  .speed-gauge-layout { gap: 12px; padding-bottom: 18px; }
+  .speed-gauge-wrap { min-height: 210px; }
+}
