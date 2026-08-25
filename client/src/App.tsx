@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Route, Switch, useLocation } from "wouter";
+import { useEffect } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import SiteSeo from "./components/SiteSeo";
 import { HYDRATION_SAFE_DEFAULT_THEME, ThemeProvider } from "./contexts/ThemeContext";
@@ -19,9 +20,34 @@ const Terms = () => <LegalPage kind="terms" />;
 const Copyright = () => <LegalPage kind="copyright" />;
 const Contact = () => <LegalPage kind="contact" />;
 
+function ScrollToLocation() {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const rawHash = window.location.hash.slice(1);
+      if (rawHash) {
+        const target = document.getElementById(decodeURIComponent(rawHash));
+        if (target) {
+          const headerHeight = document.querySelector<HTMLElement>(".topbar")?.offsetHeight ?? 0;
+          const targetTop = target.getBoundingClientRect().top + window.scrollY - headerHeight - 16;
+          window.scrollTo({ top: Math.max(0, targetTop), left: 0, behavior: "auto" });
+          return;
+        }
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [location]);
+
+  return null;
+}
+
 function Router() {
   return (
     <>
+      <ScrollToLocation />
       <SiteSeo />
       <Switch>
         <Route path="/" component={Home} />
