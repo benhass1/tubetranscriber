@@ -547,3 +547,22 @@ body { color: var(--ink); }
   .about-links-panel { grid-template-columns: 1fr; gap: 26px; padding: 25px 21px; }
   .about-callout, .about-workflow-card, .about-detail-card { padding: 22px; }
 }
+
+
+/* Reference-inspired blog filters, kept in the TubeTranscriber light palette */
+.blog-hero-reference .blog-hero-inner { padding-top: 48px; padding-bottom: 40px; text-align: center; }
+.blog-hero-reference .eyebrow { justify-content: center; }
+.blog-hero-reference h1 { max-width: none; font-size: clamp(42px, 6vw, 72px); }
+.blog-hero-reference .blog-hero-description { margin-left: auto !important; margin-right: auto !important; max-width: 820px !important; color: var(--muted); font-size: 17px !important; line-height: 1.65 !important; }
+.blog-filter-list { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; max-width: 1080px; margin: 30px auto 0; }
+.blog-filter { min-height: 40px; padding: 0 18px; border: 1px solid #cbd5e1; border-radius: 999px; color: var(--muted); background: rgba(255, 255, 255, .7); font-size: 12px; font-weight: 800; transition: color .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease; }
+.blog-filter:hover { color: var(--hot-deep); border-color: #93c5fd; background: #eff6ff; transform: translateY(-1px); }
+.blog-filter.active { color: #fff; border-color: var(--hot); background: linear-gradient(135deg, var(--hot), #3b82f6); box-shadow: 0 8px 18px rgba(37, 99, 235, .2); }
+.blog-filter-empty { margin: 0; padding: 34px 22px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); background: var(--surface); text-align: center; font-size: 14px; }
+@media (max-width: 760px) {
+  .blog-hero-reference .blog-hero-inner { padding-top: 34px; padding-bottom: 30px; }
+  .blog-hero-reference h1 { font-size: clamp(37px, 11vw, 54px); }
+  .blog-hero-reference .blog-hero-description { font-size: 15px !important; }
+  .blog-filter-list { justify-content: flex-start; gap: 8px; margin-top: 22px; }
+  .blog-filter { min-height: 38px; padding: 0 14px; font-size: 11px; }
+}
