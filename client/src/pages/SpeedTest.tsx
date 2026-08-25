@@ -60,9 +60,12 @@ function sleep(ms: number) {
   return new Promise<void>(resolve => window.setTimeout(resolve, ms));
 }
 
-const SPEED_STREAMS = 6;
+const DOWNLOAD_STREAMS = 6;
+const UPLOAD_STREAMS = 4;
 const SPEED_PHASE_MS = 6_000;
 const SPEED_WARMUP_MS = 1_000;
+const DOWNLOAD_PAYLOAD_BYTES = 1_000_000;
+const UPLOAD_PAYLOAD_BYTES = 2_000_000;
 
 function trimmedMean(values: number[]) {
   const finiteValues = values.filter(value => Number.isFinite(value) && value > 0).sort((a, b) => a - b);
@@ -80,9 +83,9 @@ async function measureConcurrentSpeed(
   const phaseStartedAt = performance.now();
   const warmupEndsAt = phaseStartedAt + SPEED_WARMUP_MS;
   const phaseEndsAt = phaseStartedAt + durationMs;
-  // Small chunks complete reliably on slower mobile connections while six streams keep the pipe busy.
-  const payloadBytes = kind === "download" ? 128_000 : 128_000;
-  const streamStats = Array.from({ length: SPEED_STREAMS }, () => ({ bytes: 0, samples: [] as number[] }));
+  const streamCount = kind === "download" ? DOWNLOAD_STREAMS : UPLOAD_STREAMS;
+  const payloadBytes = kind === "download" ? DOWNLOAD_PAYLOAD_BYTES : UPLOAD_PAYLOAD_BYTES;
+  const streamStats = Array.from({ length: streamCount }, () => ({ bytes: 0, samples: [] as number[] }));
   let measuredBytes = 0;
   let lastLiveSpeed = 0;
   const stopTimer = window.setTimeout(() => phaseController.abort(), durationMs);
@@ -341,7 +344,7 @@ export default function SpeedTest() {
 
       if (isMounted.current) {
         setTestState("upload");
-        setTestStep("Phase 3/3 · Sampling YouTube upload readiness across 6 streams");
+        setTestStep("Phase 3/3 · Sampling YouTube upload readiness across 4 streams");
         setGaugeReading(0);
         setGaugeLabel("Mbps");
         setProgress(75);
@@ -389,7 +392,7 @@ export default function SpeedTest() {
             <a href="/" className="speed-test-back-link"><ArrowLeft size={15} /> Back to TubeTranscriber</a>
             <div className="speed-test-live-topline"><div><p className="speed-test-live-kicker"><MonitorUp size={14} /> Creator network toolkit</p><h1>YouTube Upload Speed Test <span>&amp; Time Estimator</span></h1></div><span className="speed-test-live-badge"><RadioTower size={14} /> Live browser test</span></div>
             <div className="speed-gauge-layout">
-              <div className="speed-gauge-copy"><p className="speed-test-live-kicker"><Signal size={14} /> {testStep}</p><p>Measure the connection you rely on to publish, then turn your upload speed into a realistic YouTube delivery timeline.</p><div className="speed-progress-line"><span style={{ width: `${progress}%` }} /></div><small>{isMeasuring ? "Sampling your connection progressively across three phases." : "Only a small technical test payload is sent; your video file is never uploaded."}</small>{error && <p className="speed-test-error" role="alert">{error}</p>}</div>
+              <div className="speed-gauge-copy"><p className="speed-test-live-kicker"><Signal size={14} /> {testStep}</p><p>Measure the connection you rely on to publish, then turn your upload speed into a realistic YouTube delivery timeline.</p><button type="button" className="speed-gauge-button" onClick={handleStartTest} disabled={isMeasuring}>{isMeasuring ? <LoaderCircle size={17} className="speed-test-spin" /> : <Play size={17} fill="currentColor" />}{buttonLabel}</button><div className="speed-progress-line"><span style={{ width: `${progress}%` }} /></div><small>{isMeasuring ? "Sampling your connection progressively across three phases." : "Only a small technical test payload is sent; your video file is never uploaded."}</small>{error && <p className="speed-test-error" role="alert">{error}</p>}</div>
               <div className="speed-gauge-wrap" aria-label={`${gaugeLabel} live speed gauge`}>
                 <svg className="speed-gauge-svg" viewBox="0 0 360 270" role="img" aria-label="Speedometer from 0 to 1000 Mbps">
                   <defs><linearGradient id="speed-gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#22d3ee" /><stop offset="52%" stopColor="#34d399" /><stop offset="100%" stopColor="#a3e635" /></linearGradient></defs>
@@ -401,7 +404,6 @@ export default function SpeedTest() {
                 <div className="speed-gauge-reading"><strong>{gaugeReading === 0 ? "0.00" : formatMbps(gaugeReading)}</strong><span>{gaugeLabel}</span></div>
               </div>
             </div>
-            <div className="speed-top-action"><button type="button" className="speed-gauge-button" onClick={handleStartTest} disabled={isMeasuring}>{isMeasuring ? <LoaderCircle size={17} className="speed-test-spin" /> : <Play size={17} fill="currentColor" />}{buttonLabel}</button><span>Runs instantly in your browser with a small test payload.</span></div>
             <div className="speed-results-summary" aria-live="polite">
               <article className="speed-summary-metric speed-summary-ping"><Zap size={18} /><div><span>Ping / Latency</span><strong>{livePing === null ? "—" : Math.round(livePing)}<small> ms</small></strong></div></article>
               <article className="speed-summary-metric"><ArrowDownToLine size={18} /><div><span>Download Speed</span><strong>{liveDownload === null ? "0.00" : formatMbps(liveDownload)}<small> Mbps</small></strong></div></article>
