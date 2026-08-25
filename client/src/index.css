@@ -392,3 +392,25 @@ body { color: var(--ink); }
   .blog-inline-links { font-size: 13px !important; }
   .blog-related { padding-top: 58px; }.blog-related-grid { grid-template-columns: 1fr; }.blog-related-card { min-height: 0; }
 }
+
+/* Cross-platform speed-test layout normalization. */
+.speed-test-page, .speed-test-page *, .speed-test-page *::before, .speed-test-page *::after { box-sizing: border-box; }
+.speed-test-page { min-width: 0; overflow-x: clip; scrollbar-gutter: stable; font-family: Inter, "Segoe UI", Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+.speed-test-live-container, .speed-test-results, .upload-estimator-layout, .creator-tips-section { width: min(1152px, calc(100% - 32px)); max-width: 1152px; min-width: 0; margin-inline: auto; }
+.speed-test-live-topline, .speed-gauge-layout, .speed-results-summary, .speed-health-row, .speed-network-footer, .speed-metrics-grid, .creator-recommendation, .upload-estimator-layout, .creator-tips-grid { min-width: 0; }
+.speed-gauge-layout { grid-template-columns: minmax(0, .72fr) minmax(0, 1.28fr); }
+.speed-gauge-copy, .speed-gauge-wrap, .speed-summary-metric, .speed-health-item, .speed-metric-card, .creator-recommendation, .upload-calculator, .creator-tip-card { min-width: 0; }
+.speed-gauge-wrap { aspect-ratio: 4 / 3; min-height: 0; }
+.speed-gauge-svg { display: block; max-width: 100%; }
+.speed-summary-metric strong, .speed-gauge-reading strong, .speed-metric-card strong { line-height: 1.05; }
+.speed-summary-metric span, .speed-health-item, .speed-metric-card p, .speed-gauge-copy > p, .speed-network-footer strong { overflow-wrap: anywhere; }
+.speed-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.speed-health-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 768px) {
+  .speed-test-live-container, .speed-test-results, .upload-estimator-layout, .creator-tips-section { width: min(100% - 24px, 620px); }
+  .speed-gauge-layout { display: flex; flex-direction: column; align-items: stretch; gap: 14px; }
+  .speed-gauge-copy { order: 1; max-width: none; }
+  .speed-gauge-wrap { order: 2; width: min(100%, 360px); align-self: center; }
+  .speed-metrics-grid { grid-template-columns: 1fr; }
+  .speed-health-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
