@@ -1,4 +1,11 @@
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /history
+Disallow: /transcript
+
 User-agent: *
 Allow: /
+Disallow: /history
+Disallow: /transcript
 
 Sitemap: https://tubetranscriber.com/sitemap.xml
