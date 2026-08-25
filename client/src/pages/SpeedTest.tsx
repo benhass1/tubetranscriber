@@ -165,7 +165,8 @@ function getHealthItems(result: NetworkResult | null, state: TestState): HealthI
 }
 
 function gaugeAngle(value: number) {
-  return -135 + Math.min(Math.max(value, 0), 1000) / 1000 * 270;
+  // The SVG needle starts horizontal-left at 0 Mbps and sweeps to horizontal-right at 1000 Mbps.
+  return -90 + Math.min(Math.max(value, 0), 1000) / 1000 * 180;
 }
 
 export default function SpeedTest() {
@@ -317,7 +318,7 @@ export default function SpeedTest() {
                   <defs><linearGradient id="speed-gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#22d3ee" /><stop offset="52%" stopColor="#34d399" /><stop offset="100%" stopColor="#a3e635" /></linearGradient></defs>
                   <path className="speed-gauge-track" d="M 50 205 A 130 130 0 0 1 310 205" pathLength="408" />
                   <path className="speed-gauge-progress" d="M 50 205 A 130 130 0 0 1 310 205" pathLength="408" strokeDasharray="408" strokeDashoffset={gaugeOffset} />
-                  <g className="speed-gauge-needle" transform={`rotate(${gaugeNeedleAngle} 180 205)`}><line x1="180" y1="205" x2="180" y2="90" /><circle cx="180" cy="205" r="8" /></g>
+                  <g className="speed-gauge-needle" style={{ transform: `rotate(${gaugeNeedleAngle}deg)`, transformOrigin: "180px 205px", transition: "transform 150ms ease-out" }}><line x1="180" y1="205" x2="180" y2="90" /><circle cx="180" cy="205" r="8" /></g>
                   {["0", "5", "10", "50", "100", "250", "500", "750", "1000"].map((label, index) => <text key={label} x={index < 4 ? 48 + index * 29 : index > 4 ? 312 - (8 - index) * 29 : 180} y={index === 0 || index === 8 ? 224 : index < 4 ? 178 - index * 22 : index > 4 ? 178 - (8 - index) * 22 : 66} className="speed-gauge-scale">{label}</text>)}
                 </svg>
                 <div className="speed-gauge-reading"><strong>{gaugeReading === 0 ? "0.00" : formatMbps(gaugeReading)}</strong><span>{gaugeLabel}</span></div>
