@@ -12,7 +12,7 @@ export default function SiteShell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
-  const nav = [{ label: "Home", href: "/" }, { label: "History", href: "/history" }, { label: "About", href: "/about" }, { label: "Blog", href: "/blog" }, { label: "Speed test", href: "/speed-test" }];
+  const nav = [{ label: "Home", href: "/" }, { label: "History", href: "/history" }, { label: "Blog", href: "/blog" }, { label: "Speed test", href: "/speed-test" }, { label: "About", href: "/about" }];
   const isActive = (href: string) => location === href || (href === "/blog" && location.startsWith("/blog/"));
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
