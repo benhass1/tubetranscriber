@@ -354,3 +354,11 @@ body { color: var(--ink); }
   .speed-top-action > span { padding-left: 2px; font-size: 9px; }
   .speed-gauge-wrap { width: min(100%, 360px); }
 }
+
+/* Exact hierarchy on every viewport: controls/gauge first, CTA second, counters/status last. */
+.speed-gauge-layout + .speed-top-action { position: relative; z-index: 1; }
+@media (max-width: 768px) {
+  .speed-gauge-layout { flex-direction: column; gap: 10px; padding-top: 18px; padding-bottom: 14px; }
+  .speed-gauge-copy { order: 1; }
+  .speed-gauge-wrap { order: 2; max-height: 300px; }
+}

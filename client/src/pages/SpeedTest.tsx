@@ -36,7 +36,6 @@ type HealthTone = "ready" | "good" | "watch" | "waiting";
 
 type HealthItem = { label: string; tone: HealthTone; detail: string };
 
-const TEST_TIMEOUT_MS = 15_000;
 const VIDEO_PRESETS: VideoPreset[] = [
   { id: "short", label: "1080p Short · 60 seconds", size: 150, unit: "MB" },
   { id: "1080p", label: "1080p video · 10 minutes", size: 1.5, unit: "GB" },
@@ -61,26 +60,125 @@ function sleep(ms: number) {
   return new Promise<void>(resolve => window.setTimeout(resolve, ms));
 }
 
-async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}) {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), TEST_TIMEOUT_MS);
-  try {
-    return await fetch(input, { ...init, signal: controller.signal, cache: "no-store" });
-  } finally {
-    window.clearTimeout(timeout);
-  }
+const SPEED_STREAMS = 6;
+const SPEED_PHASE_MS = 6_000;
+const SPEED_WARMUP_MS = 1_000;
+
+function trimmedMean(values: number[]) {
+  const finiteValues = values.filter(value => Number.isFinite(value) && value > 0).sort((a, b) => a - b);
+  if (!finiteValues.length) return 0;
+  const trimmed = finiteValues.length > 3 ? finiteValues.slice(1, -1) : finiteValues;
+  return trimmed.reduce((sum, value) => sum + value, 0) / trimmed.length;
 }
 
-async function fetchSpeedSample(kind: "download" | "upload", bytes: number) {
+async function measureConcurrentSpeed(
+  kind: "download" | "upload",
+  durationMs: number,
+  onSample: (speedMbps: number, progress: number) => void,
+) {
+  const phaseController = new AbortController();
+  const phaseStartedAt = performance.now();
+  const warmupEndsAt = phaseStartedAt + SPEED_WARMUP_MS;
+  const phaseEndsAt = phaseStartedAt + durationMs;
+  // Small chunks complete reliably on slower mobile connections while six streams keep the pipe busy.
+  const payloadBytes = kind === "download" ? 128_000 : 128_000;
+  const streamStats = Array.from({ length: SPEED_STREAMS }, () => ({ bytes: 0, samples: [] as number[] }));
+  let measuredBytes = 0;
+  let lastLiveSpeed = 0;
+  const stopTimer = window.setTimeout(() => phaseController.abort(), durationMs);
+
+  const recordBytes = (stats: { bytes: number; samples: number[] }, bytes: number, observedAt: number, requestStartedAt: number) => {
+    if (observedAt <= warmupEndsAt || bytes <= 0) return;
+    stats.bytes += bytes;
+    measuredBytes += bytes;
+    const requestSeconds = Math.max((observedAt - requestStartedAt) / 1_000, 0.001);
+    stats.samples.push((bytes * 8) / 1_000_000 / requestSeconds);
+    const steadySeconds = Math.max((observedAt - warmupEndsAt) / 1_000, 0.001);
+    const rawLiveSpeed = (measuredBytes * 8) / 1_000_000 / steadySeconds;
+    lastLiveSpeed = lastLiveSpeed === 0 ? rawLiveSpeed : lastLiveSpeed * 0.35 + rawLiveSpeed * 0.65;
+    onSample(lastLiveSpeed, Math.min(94, 27 + ((observedAt - phaseStartedAt) / durationMs) * 67));
+  };
+
+  const workers = streamStats.map(async (stats) => {
+    while (performance.now() < phaseEndsAt && !phaseController.signal.aborted) {
+      const requestStartedAt = performance.now();
+      try {
+        if (kind === "download") {
+          const response = await fetch(withCacheBust(`/__down?bytes=${payloadBytes}`), { signal: phaseController.signal, cache: "no-store" });
+          if (!response.ok) throw new Error("download sample failed");
+          if (response.body) {
+            const reader = response.body.getReader();
+            while (!phaseController.signal.aborted) {
+              const chunk = await reader.read();
+              if (chunk.done) break;
+              recordBytes(stats, chunk.value.byteLength, performance.now(), requestStartedAt);
+            }
+          } else {
+            const body = await response.arrayBuffer();
+            recordBytes(stats, body.byteLength, performance.now(), requestStartedAt);
+          }
+        } else {
+          const response = await fetch(withCacheBust("/__up"), {
+            method: "POST",
+            body: new Blob([new Uint8Array(payloadBytes)], { type: "application/octet-stream" }),
+            signal: phaseController.signal,
+            cache: "no-store",
+          });
+          if (!response.ok) throw new Error("upload sample failed");
+          await response.arrayBuffer().catch(() => undefined);
+          recordBytes(stats, payloadBytes, performance.now(), requestStartedAt);
+        }
+      } catch (error) {
+        if (phaseController.signal.aborted) break;
+        throw error;
+      }
+    }
+  });
+
+  try {
+    await Promise.all(workers);
+  } finally {
+    window.clearTimeout(stopTimer);
+    phaseController.abort();
+  }
+
+  const steadySeconds = Math.max((Math.min(performance.now(), phaseEndsAt) - warmupEndsAt) / 1_000, 0.001);
+  const streamRates = streamStats.map(stats => (stats.bytes * 8) / 1_000_000 / steadySeconds).filter(rate => rate > 0);
+  // Aggregate throughput is the sum of all active connections, not the average per stream.
+  const aggregateRate = streamRates.reduce((sum, rate) => sum + rate, 0);
+  const stableRate = aggregateRate || trimmedMean(streamStats.flatMap(stats => stats.samples));
+  if (stableRate <= 0) throw new Error(`${kind} phase produced no measurable throughput`);
+  return { speedMbps: stableRate, measuredBytes, durationMs };
+}
+
+async function measurePingPhase(durationMs: number, onSample: (latencyMs: number, progress: number) => void) {
   const startedAt = performance.now();
-  const response = kind === "download"
-    ? await fetchWithTimeout(withCacheBust(`/__down?bytes=${bytes}`))
-    : await fetchWithTimeout(withCacheBust("/__up"), { method: "POST", body: new Uint8Array(bytes) });
-  if (!response.ok) throw new Error(`${kind} sample failed`);
-  if (kind === "download") await response.arrayBuffer();
-  else await response.arrayBuffer().catch(() => undefined);
-  const seconds = Math.max((performance.now() - startedAt) / 1000, 0.001);
-  return (bytes * 8) / 1_000_000 / seconds;
+  const samples: number[] = [];
+  while (performance.now() - startedAt < durationMs) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 850);
+    const requestStartedAt = performance.now();
+    try {
+      const response = await fetch(withCacheBust("/__down?bytes=0"), { signal: controller.signal, cache: "no-store" });
+      if (response.ok) {
+        const latency = Math.max(1, performance.now() - requestStartedAt);
+        samples.push(latency);
+        const average = samples.reduce((sum, sample) => sum + sample, 0) / samples.length;
+        onSample(average, Math.min(23, 4 + ((performance.now() - startedAt) / durationMs) * 23));
+      }
+    } catch {
+      // A single missed echo is excluded; later samples still determine the phase result.
+    } finally {
+      window.clearTimeout(timeout);
+    }
+    const remaining = durationMs - (performance.now() - startedAt);
+    if (remaining > 0) await sleep(Math.min(220, remaining));
+  }
+  if (!samples.length) throw new Error("Ping phase failed");
+  return {
+    latencyMs: samples.reduce((sum, sample) => sum + sample, 0) / samples.length,
+    jitterMs: Math.max(...samples) - Math.min(...samples),
+  };
 }
 
 async function detectNetworkDetails(): Promise<NetworkDetails> {
@@ -212,68 +310,54 @@ export default function SpeedTest() {
     setNetworkDetails(null);
     setError("");
     try {
-      const pingSamples: number[] = [];
-      for (let index = 0; index < 3; index += 1) {
-        const startedAt = performance.now();
-        const response = await fetchWithTimeout(withCacheBust("/__down?bytes=0"));
-        if (!response.ok) throw new Error("Ping sample failed");
-        const ping = Math.max(1, performance.now() - startedAt);
-        pingSamples.push(ping);
-        const average = pingSamples.reduce((sum, sample) => sum + sample, 0) / pingSamples.length;
-        if (isMounted.current) {
-          setLivePing(average);
-          setGaugeReading(Math.min(average, 1000));
-          setGaugeLabel("ms");
-          setProgress(8 + index * 7);
-        }
-        await sleep(820);
-      }
-      const latencyMs = pingSamples.reduce((sum, sample) => sum + sample, 0) / pingSamples.length;
-      const jitterMs = Math.max(...pingSamples) - Math.min(...pingSamples);
+      const pingResult = await measurePingPhase(3_000, (latencyMs, phaseProgress) => {
+        if (!isMounted.current) return;
+        setLivePing(latencyMs);
+        setGaugeReading(Math.min(latencyMs, 1000));
+        setGaugeLabel("ms");
+        setProgress(phaseProgress);
+      });
+      const { latencyMs, jitterMs } = pingResult;
 
       if (isMounted.current) {
         setTestState("download");
-        setTestStep("Phase 2/3 · Sampling download speed");
+        setTestStep("Phase 2/3 · Sampling download speed across 6 streams");
         setGaugeReading(0);
         setGaugeLabel("Mbps");
-        setProgress(27);
+        setProgress(25);
       }
-      const downloadSamples: number[] = [];
-      for (let index = 0; index < 3; index += 1) {
-        const sample = await fetchSpeedSample("download", 1_000_000 + index * 500_000);
-        downloadSamples.push(sample);
-        const average = downloadSamples.reduce((sum, value) => sum + value, 0) / downloadSamples.length;
-        if (isMounted.current) {
-          setLiveDownload(average);
-          setGaugeReading(average);
-          setGaugeLabel("Mbps");
-          setProgress(34 + index * 14);
-        }
-        await sleep(1_450);
+      const downloadResult = await measureConcurrentSpeed("download", SPEED_PHASE_MS, (speedMbps, phaseProgress) => {
+        if (!isMounted.current) return;
+        setLiveDownload(speedMbps);
+        setGaugeReading(speedMbps);
+        setGaugeLabel("Mbps");
+        setProgress(phaseProgress);
+      });
+      const downloadMbps = downloadResult.speedMbps;
+      if (isMounted.current) {
+        setLiveDownload(downloadMbps);
+        setGaugeReading(downloadMbps);
       }
-      const downloadMbps = downloadSamples.reduce((sum, sample) => sum + sample, 0) / downloadSamples.length;
 
       if (isMounted.current) {
         setTestState("upload");
-        setTestStep("Phase 3/3 · Testing YouTube upload readiness");
+        setTestStep("Phase 3/3 · Sampling YouTube upload readiness across 6 streams");
         setGaugeReading(0);
         setGaugeLabel("Mbps");
-        setProgress(72);
+        setProgress(75);
       }
-      const uploadSamples: number[] = [];
-      for (let index = 0; index < 3; index += 1) {
-        const sample = await fetchSpeedSample("upload", 700_000 + index * 150_000);
-        uploadSamples.push(sample);
-        const average = uploadSamples.reduce((sum, value) => sum + value, 0) / uploadSamples.length;
-        if (isMounted.current) {
-          setLiveUpload(average);
-          setGaugeReading(average);
-          setGaugeLabel("Mbps");
-          setProgress(78 + index * 7);
-        }
-        await sleep(1_650);
+      const uploadResult = await measureConcurrentSpeed("upload", SPEED_PHASE_MS, (speedMbps, phaseProgress) => {
+        if (!isMounted.current) return;
+        setLiveUpload(speedMbps);
+        setGaugeReading(speedMbps);
+        setGaugeLabel("Mbps");
+        setProgress(Math.min(98, 75 + (phaseProgress - 27) * 0.25));
+      });
+      const uploadMbps = uploadResult.speedMbps;
+      if (isMounted.current) {
+        setLiveUpload(uploadMbps);
+        setGaugeReading(uploadMbps);
       }
-      const uploadMbps = uploadSamples.reduce((sum, sample) => sum + sample, 0) / uploadSamples.length;
       const nextResult = { uploadMbps, downloadMbps, latencyMs, jitterMs };
       if (isMounted.current) {
         setResult(nextResult);
@@ -304,14 +388,6 @@ export default function SpeedTest() {
           <div className="content-container speed-test-live-container">
             <a href="/" className="speed-test-back-link"><ArrowLeft size={15} /> Back to TubeTranscriber</a>
             <div className="speed-test-live-topline"><div><p className="speed-test-live-kicker"><MonitorUp size={14} /> Creator network toolkit</p><h1>YouTube Upload Speed Test <span>&amp; Time Estimator</span></h1></div><span className="speed-test-live-badge"><RadioTower size={14} /> Live browser test</span></div>
-            <div className="speed-top-action"><button type="button" className="speed-gauge-button" onClick={handleStartTest} disabled={isMeasuring}>{isMeasuring ? <LoaderCircle size={17} className="speed-test-spin" /> : <Play size={17} fill="currentColor" />}{buttonLabel}</button><span>Runs instantly in your browser with a small test payload.</span></div>
-            <div className="speed-results-summary" aria-live="polite">
-              <article className="speed-summary-metric speed-summary-ping"><Zap size={18} /><div><span>Ping / Latency</span><strong>{livePing === null ? "—" : Math.round(livePing)}<small> ms</small></strong></div></article>
-              <article className="speed-summary-metric"><ArrowDownToLine size={18} /><div><span>Download Speed</span><strong>{liveDownload === null ? "0.00" : formatMbps(liveDownload)}<small> Mbps</small></strong></div></article>
-              <article className="speed-summary-metric speed-summary-upload"><ArrowUpFromLine size={18} /><div><span>Upload Speed</span><strong>{liveUpload === null ? "0.00" : formatMbps(liveUpload)}<small> Mbps</small></strong></div></article>
-            </div>
-            <div className="speed-health-row" aria-label="Connection health indicators">{healthItems.map(item => <div key={item.label} className={`speed-health-item speed-health-${item.tone}`}><span className="speed-health-dot" /><span>{item.label}</span><strong>{item.detail}</strong></div>)}</div>
-
             <div className="speed-gauge-layout">
               <div className="speed-gauge-copy"><p className="speed-test-live-kicker"><Signal size={14} /> {testStep}</p><p>Measure the connection you rely on to publish, then turn your upload speed into a realistic YouTube delivery timeline.</p><div className="speed-progress-line"><span style={{ width: `${progress}%` }} /></div><small>{isMeasuring ? "Sampling your connection progressively across three phases." : "Only a small technical test payload is sent; your video file is never uploaded."}</small>{error && <p className="speed-test-error" role="alert">{error}</p>}</div>
               <div className="speed-gauge-wrap" aria-label={`${gaugeLabel} live speed gauge`}>
@@ -325,6 +401,13 @@ export default function SpeedTest() {
                 <div className="speed-gauge-reading"><strong>{gaugeReading === 0 ? "0.00" : formatMbps(gaugeReading)}</strong><span>{gaugeLabel}</span></div>
               </div>
             </div>
+            <div className="speed-top-action"><button type="button" className="speed-gauge-button" onClick={handleStartTest} disabled={isMeasuring}>{isMeasuring ? <LoaderCircle size={17} className="speed-test-spin" /> : <Play size={17} fill="currentColor" />}{buttonLabel}</button><span>Runs instantly in your browser with a small test payload.</span></div>
+            <div className="speed-results-summary" aria-live="polite">
+              <article className="speed-summary-metric speed-summary-ping"><Zap size={18} /><div><span>Ping / Latency</span><strong>{livePing === null ? "—" : Math.round(livePing)}<small> ms</small></strong></div></article>
+              <article className="speed-summary-metric"><ArrowDownToLine size={18} /><div><span>Download Speed</span><strong>{liveDownload === null ? "0.00" : formatMbps(liveDownload)}<small> Mbps</small></strong></div></article>
+              <article className="speed-summary-metric speed-summary-upload"><ArrowUpFromLine size={18} /><div><span>Upload Speed</span><strong>{liveUpload === null ? "0.00" : formatMbps(liveUpload)}<small> Mbps</small></strong></div></article>
+            </div>
+            <div className="speed-health-row" aria-label="Connection health indicators">{healthItems.map(item => <div key={item.label} className={`speed-health-item speed-health-${item.tone}`}><span className="speed-health-dot" /><span>{item.label}</span><strong>{item.detail}</strong></div>)}</div>
             <div className="speed-network-footer"><div><Globe2 size={16} /><span>Public IP<strong>{networkDetails?.ip ?? "Detecting after test"}</strong></span></div><div><Server size={16} /><span>ISP / network<strong>{networkDetails?.isp ?? "Detecting after test"}</strong></span></div><div><MapPin size={16} /><span>Estimated location<strong>{networkDetails?.city ?? "Nearest edge"}</strong></span></div><div><RadioTower size={16} /><span>Test server<strong>{networkDetails?.server ?? "Cloudflare edge"}</strong></span></div></div>
           </div>
         </section>
