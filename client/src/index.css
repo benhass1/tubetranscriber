@@ -647,3 +647,23 @@ body { color: var(--ink); }
 @media (max-width: 768px) {
   .dark .speed-summary-metric { border-bottom-color: #31445f; }
 }
+
+
+/* Article reading contrast: keep dark mode comfortable for long-form copy. */
+.dark .blog-post-page { color: #e5edf7; background: #0b1324; }
+.dark .blog-post-header h1, .dark .blog-post-content h2, .dark .blog-related-card h3, .dark .blog-callout h2 { color: #f8fbff; }
+.dark .blog-post-kicker, .dark .blog-post-excerpt, .dark .author-signal { color: #b8c6d7; }
+.dark .blog-post-content > .blog-post-intro { color: #e5edf7; }
+.dark .blog-post-content p, .dark .blog-post-content details p, .dark .blog-related-card p, .dark .blog-callout p:last-child { color: #c4d0df; }
+.dark .blog-post-content h2 { text-shadow: 0 1px 1px rgba(0, 0, 0, .18); }
+.dark .blog-inline-links { color: #dbeafe !important; background: rgba(37, 99, 235, .16); }
+.dark .blog-inline-links a, .dark .blog-post-end-link, .dark .blog-related-card h3 a { color: #93c5fd; }
+.dark .blog-inline-links a:hover, .dark .blog-post-end-link:hover, .dark .blog-related-card h3 a:hover { color: #bfdbfe; }
+.dark .blog-faq { border-top-color: #31445f; }
+.dark .blog-faq details { border-top-color: #31445f; }
+.dark .blog-faq details:last-of-type { border-bottom-color: #31445f; }
+.dark .blog-faq summary { color: #f8fbff; }
+.dark .blog-faq details p { color: #c4d0df; }
+.dark .blog-related-card { border-color: #31445f; background: #16243b; }
+.dark .blog-related-card:hover { border-color: #4b6b96; box-shadow: 0 12px 28px rgba(0, 0, 0, .2); }
+.dark .blog-post-rule { background: #31445f; }
