@@ -12,7 +12,7 @@ export default function SiteShell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
-  const nav = [{ label: "Home", href: "/" }, { label: "History", href: "/history" }, { label: "About", href: "/about" }, { label: "Blog", href: "/blog" }];
+  const nav = [{ label: "Home", href: "/" }, { label: "History", href: "/history" }, { label: "About", href: "/about" }, { label: "Blog", href: "/blog" }, { label: "Speed test", href: "/speed-test" }];
   const isActive = (href: string) => location === href || (href === "/blog" && location.startsWith("/blog/"));
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
@@ -46,6 +46,6 @@ export default function SiteShell({ children }: { children: ReactNode }) {
       </nav>
     </header>
     <main>{children}</main>
-    <footer className="site-footer"><div className="footer-inner"><Brand /><div className="footer-links"><Link href="/about">About & FAQ</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/copyright">Copyright</Link><Link href="/contact">Contact</Link></div><p>Transcript history remains in your browser. Not affiliated with YouTube or Google.</p><span className="author-signal">Maintained by the TubeTranscriber Engineering Team</span></div></footer>
+    <footer className="site-footer"><div className="footer-inner"><Brand /><div className="footer-links"><Link href="/about">About & FAQ</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/copyright">Copyright</Link><Link href="/contact">Contact</Link><Link href="/speed-test">Speed test</Link></div><p>Transcript history remains in your browser. Not affiliated with YouTube or Google.</p><span className="author-signal">Maintained by the TubeTranscriber Engineering Team</span></div></footer>
   </div>;
 }

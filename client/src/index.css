@@ -245,3 +245,72 @@ body { color: var(--ink); }
   .brand { font-size: 16px; gap: 8px; }
   .brand-mark { width: 27px; height: 27px; }
 }
+
+/* YouTube creator speed-test page */
+.speed-test-page { background: var(--bg); }
+.speed-test-hero { border-bottom: 1px solid var(--line); background: linear-gradient(135deg, var(--bg) 0%, var(--soft-hot) 100%); }
+.speed-test-hero-inner { padding: 38px 0 76px; }
+.speed-test-hero .back-link { margin-bottom: 58px; }
+.speed-test-hero-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr); align-items: center; gap: 72px; }
+.speed-test-hero h1 { max-width: 760px; margin: 0; font: 800 clamp(43px, 5.7vw, 72px)/1.03 Inter, Arial, sans-serif; letter-spacing: -.065em; }
+.speed-test-hero h1 span { color: var(--hot); }
+.speed-test-lede { max-width: 610px; margin: 25px 0 0; color: var(--muted); font-size: 17px; line-height: 1.75; }
+.speed-test-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 17px; margin-top: 31px; }
+.speed-test-start { min-height: 52px; padding-inline: 21px; }
+.speed-test-start:disabled { cursor: wait; opacity: .78; }
+.speed-test-private { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.speed-test-private svg { color: var(--hot); }
+.speed-test-status { min-height: 18px; margin: 15px 0 0; color: var(--hot-deep); font: 500 11px "IBM Plex Mono", monospace; }
+.speed-test-error { margin: 5px 0 0; color: var(--hot-deep); font-size: 12px; font-weight: 700; }
+.speed-test-spin { animation: spin 1s linear infinite; }
+.speed-test-hero-card { min-height: 298px; padding: 30px; border: 1px solid color-mix(in srgb, var(--hot) 26%, var(--line)); border-radius: 20px; color: #fff; background: var(--hot); box-shadow: 0 20px 42px color-mix(in srgb, var(--hot) 22%, transparent); }
+.speed-test-hero-card-top { display: flex; align-items: center; justify-content: space-between; color: rgba(255, 255, 255, .72); font: 500 10px "IBM Plex Mono", monospace; letter-spacing: .1em; }
+.speed-test-hero-card strong { display: block; margin-top: 87px; font: 800 29px/1.1 Inter, Arial, sans-serif; letter-spacing: -.045em; }
+.speed-test-hero-card p { max-width: 290px; margin: 12px 0 0; color: rgba(255, 255, 255, .82); font-size: 13px; line-height: 1.65; }
+.speed-test-hero-rule { height: 1px; margin: 24px 0 16px; background: rgba(255, 255, 255, .24); }
+.speed-test-formula { color: rgba(255, 255, 255, .73); font: 500 11px "IBM Plex Mono", monospace; }
+.speed-test-results { padding: 83px 0 91px; }
+.speed-test-section-heading { align-items: end; margin-bottom: 31px; }
+.speed-test-section-heading h2, .upload-estimator-copy h2, .creator-tips-section h2 { max-width: 650px; margin: 0; font: 800 clamp(30px, 3.7vw, 46px)/1.08 Inter, Arial, sans-serif; letter-spacing: -.055em; }
+.speed-test-section-heading > .section-answer { max-width: 420px; margin-bottom: 3px; }
+.speed-metrics-grid { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 15px; }
+.speed-metric-card { min-height: 189px; padding: 23px 24px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); box-shadow: var(--shadow); }
+.speed-metric-primary { border-color: color-mix(in srgb, var(--hot) 42%, var(--line)); background: var(--soft-hot); }
+.speed-metric-icon { display: grid; place-items: center; width: 39px; height: 39px; margin-bottom: 25px; color: var(--hot); border-radius: 11px; background: var(--surface); }
+.speed-metric-label { display: block; color: var(--muted); font: 500 10px "IBM Plex Mono", monospace; letter-spacing: .07em; text-transform: uppercase; }
+.speed-metric-card strong { display: block; margin-top: 8px; color: var(--ink); font: 800 36px/1 Inter, Arial, sans-serif; letter-spacing: -.06em; }
+.speed-metric-card strong small { color: var(--muted); font: 700 12px Inter, Arial, sans-serif; letter-spacing: 0; }
+.speed-metric-card p { margin: 12px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.creator-recommendation { display: grid; grid-template-columns: 48px 1fr; gap: 16px; align-items: start; margin-top: 15px; padding: 21px 23px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); }
+.creator-recommendation-icon { display: grid; place-items: center; width: 42px; height: 42px; color: var(--hot); border-radius: 50%; background: var(--soft-hot); }
+.creator-recommendation h3 { margin: 6px 0 5px; font: 800 18px/1.25 Inter, Arial, sans-serif; letter-spacing: -.03em; }
+.creator-recommendation p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.recommendation-badge { display: inline-flex; padding: 6px 9px; border-radius: 99px; color: var(--hot-deep); background: var(--soft-hot); font: 700 10px "IBM Plex Mono", monospace; letter-spacing: .045em; text-transform: uppercase; }
+.creator-recommendation-high { border-color: color-mix(in srgb, #16a34a 35%, var(--line)); }.creator-recommendation-high .creator-recommendation-icon { color: #15803d; background: #f0fdf4; }.creator-recommendation-high .recommendation-badge { color: #15803d; background: #f0fdf4; }
+.creator-recommendation-good { border-color: color-mix(in srgb, var(--hot) 35%, var(--line)); }
+.creator-recommendation-low .creator-recommendation-icon { color: #b45309; background: #fffbeb; }.creator-recommendation-low .recommendation-badge { color: #b45309; background: #fffbeb; }
+.creator-recommendation-neutral .creator-recommendation-icon { color: var(--muted); background: var(--bg); }.creator-recommendation-neutral .recommendation-badge { color: var(--muted); background: var(--bg); }
+.upload-estimator-section { padding: 89px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); }
+.upload-estimator-layout { display: grid; grid-template-columns: minmax(0, .9fr) minmax(330px, .75fr); align-items: start; gap: 105px; }
+.upload-estimator-copy > p:not(.eyebrow) { max-width: 570px; margin: 20px 0 0; color: var(--muted); font-size: 15px; line-height: 1.8; }
+.upload-estimator-note { display: flex; align-items: flex-start; gap: 11px; max-width: 570px; margin-top: 27px; padding: 15px 17px; border-left: 2px solid var(--hot); color: var(--muted); background: var(--soft-hot); font-size: 12px; line-height: 1.65; }
+.upload-estimator-note svg { flex: 0 0 auto; margin-top: 2px; color: var(--hot); }
+.upload-estimator-note strong { color: var(--ink); }
+.upload-calculator { padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); box-shadow: var(--shadow); }
+.upload-calculator-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.upload-calculator-heading h3 { margin: 0; font: 800 20px/1.2 Inter, Arial, sans-serif; letter-spacing: -.04em; }
+.upload-calculator-heading .panel-label { margin-bottom: 7px; }
+.calculator-value { padding-top: 21px; color: var(--hot); font: 700 11px "IBM Plex Mono", monospace; text-align: right; }
+.speed-field-label { display: block; margin: 0 0 8px; color: var(--muted); font-size: 11px; font-weight: 800; }
+.upload-calculator select, .upload-calculator input { min-height: 45px; width: 100%; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; outline: 0; color: var(--ink); background: var(--surface); font-size: 12px; }
+.upload-calculator select:focus, .upload-calculator input:focus { border-color: var(--hot); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hot) 15%, transparent); }
+.custom-size-fields { margin-top: 15px; }.custom-size-row { display: grid; grid-template-columns: 1fr 100px; gap: 8px; }
+.calculator-result { margin-top: 23px; padding: 17px; border: 1px solid color-mix(in srgb, var(--hot) 28%, var(--line)); border-radius: 11px; background: var(--soft-hot); }
+.calculator-result span { display: flex; align-items: center; gap: 7px; color: var(--muted); font: 700 10px "IBM Plex Mono", monospace; letter-spacing: .04em; text-transform: uppercase; }.calculator-result span svg { color: var(--hot); }
+.calculator-result strong { display: block; margin-top: 10px; color: var(--ink); font: 800 27px/1.1 Inter, Arial, sans-serif; letter-spacing: -.045em; }.calculator-result small { display: block; margin-top: 7px; color: var(--muted); font-size: 11px; }
+.creator-tips-section { padding: 87px 0 105px; }.creator-tips-section .section-heading { margin-bottom: 34px; }.creator-tips-section .section-answer { max-width: 600px; }
+.creator-tips-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }.creator-tip-card { min-height: 202px; padding: 23px 24px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); }.creator-tip-card > span { color: var(--hot); font: 500 11px "IBM Plex Mono", monospace; }.creator-tip-card h3 { margin: 44px 0 9px; font: 800 17px/1.25 Inter, Arial, sans-serif; letter-spacing: -.035em; }.creator-tip-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.dark .speed-test-hero-card { box-shadow: var(--shadow); }.dark .creator-recommendation-low .creator-recommendation-icon, .dark .creator-recommendation-low .recommendation-badge { color: #fbbf24; background: rgba(251, 191, 36, .12); }.dark .creator-recommendation-high .creator-recommendation-icon, .dark .creator-recommendation-high .recommendation-badge { color: #86efac; background: rgba(134, 239, 172, .12); }
+@media (max-width: 760px) {
+  .speed-test-hero-inner { padding: 28px 0 58px; }.speed-test-hero .back-link { margin-bottom: 44px; }.speed-test-hero-grid, .upload-estimator-layout { grid-template-columns: 1fr; gap: 38px; }.speed-test-hero h1 { font-size: 43px; letter-spacing: -.055em; }.speed-test-lede { font-size: 15px; }.speed-test-actions { align-items: stretch; flex-direction: column; gap: 14px; }.speed-test-start { width: 100%; }.speed-test-private { justify-content: center; }.speed-test-hero-card { min-height: auto; padding: 24px; }.speed-test-hero-card strong { margin-top: 67px; }.speed-test-results { padding: 62px 0 67px; }.speed-test-section-heading { display: block; }.speed-test-section-heading > .section-answer { margin-top: 15px; }.speed-metrics-grid, .creator-tips-grid { grid-template-columns: 1fr; }.speed-metric-card { min-height: 160px; }.speed-metric-icon { margin-bottom: 18px; }.speed-metric-card strong { font-size: 33px; }.creator-recommendation { grid-template-columns: 39px 1fr; gap: 12px; padding: 18px; }.creator-recommendation h3 { font-size: 16px; }.upload-estimator-section { padding: 66px 0; }.upload-estimator-layout { gap: 32px; }.upload-estimator-copy h2, .creator-tips-section h2 { font-size: 33px; }.upload-calculator { padding: 19px; }.calculator-value { max-width: 100px; }.creator-tips-section { padding: 66px 0 75px; }.creator-tips-section .section-heading { display: block; }.creator-tip-card h3 { margin-top: 30px; }
+}

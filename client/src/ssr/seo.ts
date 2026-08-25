@@ -44,6 +44,7 @@ export function getHeadMeta(url: string): HeadMeta {
   if (path === "/contact") return { title: "Contact TubeTranscriber", description: "Contact TubeTranscriber for support, privacy questions, product feedback, and copyright concerns.", canonicalPath: "/contact" };
   if (path === "/history") return { title: "Local Transcript History | TubeTranscriber", description: "View transcript lookups saved privately in this browser.", noindex: true };
   if (path === "/transcript") return { title: "YouTube Transcript Reader | TubeTranscriber", description: "Read, search, copy, and export a YouTube transcript.", noindex: true };
+  if (path === "/speed-test") return { title: "YouTube Upload Speed Test | TubeTranscriber", description: "Measure upload speed and estimate YouTube video upload times for 1080p, 4K, and custom creator video files.", canonicalPath: "/speed-test" };
   return { title: `Page Not Found | ${SITE}`, description: DEFAULT_DESCRIPTION, notFound: true, noindex: true };
 }
 

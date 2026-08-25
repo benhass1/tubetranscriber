@@ -12,6 +12,7 @@ import Home from "./pages/Home";
 import LegalPage from "./pages/LegalPage";
 import NotFound from "./pages/NotFound";
 import Transcript from "./pages/Transcript";
+import SpeedTest from "./pages/SpeedTest";
 
 const Privacy = () => <LegalPage kind="privacy" />;
 const Terms = () => <LegalPage kind="terms" />;
@@ -25,6 +26,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/transcript" component={Transcript} />
+        <Route path="/speed-test" component={SpeedTest} />
         <Route path="/history" component={History} />
         <Route path="/about" component={About} />
         <Route path="/blog/:slug" component={BlogPost} />

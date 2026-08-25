@@ -50,6 +50,10 @@ const pageCopy: Record<string, { title: string; description: string }> = {
     title: "YouTube Transcript Reader",
     description: "Read, search, copy, and download captions for a public YouTube video as a clean transcript in TXT, JSON, or SRT format for creators and teams.",
   },
+  "/speed-test": {
+    title: "YouTube Upload Speed Test",
+    description: "Measure upload speed and estimate YouTube video upload times for 1080p, 4K, and custom creator video files.",
+  },
   "/privacy": { title: "Privacy Policy", description: "Read how TubeTranscriber handles browser-local transcript history, public YouTube links, caption data, analytics, and privacy-conscious changes.", },
   "/terms": { title: "Terms of Service", description: "Review the terms for using TubeTranscriber to read and work with public YouTube captions and exported transcript files responsibly and with care.", },
   "/copyright": { title: "Copyright and DMCA", description: "Understand copyright guidance for transcripts and captions handled through TubeTranscriber, including creator rights and good-faith concerns.", },
