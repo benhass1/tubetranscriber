@@ -566,3 +566,84 @@ body { color: var(--ink); }
   .blog-filter-list { justify-content: flex-start; gap: 8px; margin-top: 22px; }
   .blog-filter { min-height: 38px; padding: 0 14px; font-size: 11px; }
 }
+
+
+/* Dark-mode readability pass for SpeedTest only: functionality and layout stay unchanged. */
+.dark .speed-test-page { color: #e5edf7; background: #0b1324; }
+.dark .speed-test-live-section { color: #e5edf7; background: #0b1324; }
+.dark .speed-test-back-link { color: #9aabc0; }
+.dark .speed-test-back-link:hover { color: #93c5fd; }
+.dark .speed-test-live-kicker { color: #7db7ff; }
+.dark .speed-test-live-topline h1 { color: #f8fbff; }
+.dark .speed-test-live-topline h1 span { color: #60a5fa; }
+.dark .speed-test-live-badge { border-color: #35527b; color: #a9ceff; background: rgba(37, 99, 235, .18); }
+.dark .speed-gauge-layout { border-color: #31445f; background: #111d32; box-shadow: 0 14px 32px rgba(0, 0, 0, .2); }
+.dark .speed-gauge-copy .speed-test-live-kicker { color: #9fb1c7; }
+.dark .speed-gauge-copy > p:not(.speed-test-live-kicker) { color: #c1cede; }
+.dark .speed-gauge-button { border-color: #60a5fa; color: #fff; background: #2563eb; box-shadow: 0 9px 22px rgba(37, 99, 235, .3); }
+.dark .speed-gauge-button:hover { background: #3b82f6; }
+.dark .speed-progress-line { background: #2c405d; }
+.dark .speed-gauge-copy > small { color: #a8b8cb; }
+.dark .speed-gauge-copy .speed-test-error { color: #fca5a5; }
+.dark .speed-gauge-track { stroke: #2b3f5c; }
+.dark .speed-gauge-needle line { stroke: #f8fbff; filter: drop-shadow(0 0 4px rgba(255, 255, 255, .22)); }
+.dark .speed-gauge-needle circle { fill: #3b82f6; stroke: #e5edf7; }
+.dark .speed-gauge-scale { fill: #a9b9cc; }
+.dark .speed-gauge-reading strong { color: #f8fbff; }
+.dark .speed-gauge-reading span { color: #7db7ff; }
+.dark .speed-results-summary { border-color: #31445f; background: #16243b; box-shadow: 0 14px 32px rgba(0, 0, 0, .22); }
+.dark .speed-summary-metric { border-color: #31445f; color: #a9b9cc; }
+.dark .speed-summary-metric > svg { color: #7db7ff; }
+.dark .speed-summary-ping > svg { color: #f7c96d; }
+.dark .speed-summary-upload > svg { color: #60a5fa; }
+.dark .speed-summary-metric span { color: #b5c4d5; }
+.dark .speed-summary-metric strong { color: #f8fbff; }
+.dark .speed-summary-metric small { color: #b5c4d5; }
+.dark .speed-health-row { border-color: #31445f; background: #16243b; }
+.dark .speed-health-item { color: #b5c4d5; }
+.dark .speed-health-item strong { color: #d5dfeb; }
+.dark .speed-health-dot { background: #71839a; box-shadow: 0 0 0 4px rgba(113, 131, 154, .16); }
+.dark .speed-health-ready .speed-health-dot { background: #4ade80; box-shadow: 0 0 0 4px rgba(74, 222, 128, .14); }
+.dark .speed-health-ready strong { color: #86efac; }
+.dark .speed-health-good .speed-health-dot { background: #fbbf24; box-shadow: 0 0 0 4px rgba(251, 191, 36, .14); }
+.dark .speed-health-good strong { color: #fde68a; }
+.dark .speed-health-watch .speed-health-dot { background: #fb7185; box-shadow: 0 0 0 4px rgba(251, 113, 133, .14); }
+.dark .speed-health-watch strong { color: #fda4af; }
+.dark .speed-network-footer { border-color: #31445f; background: #31445f; }
+.dark .speed-network-footer > div { background: #111d32; }
+.dark .speed-network-footer svg { color: #7db7ff; }
+.dark .speed-network-footer span { color: #9fb1c7; }
+.dark .speed-network-footer strong { color: #e5edf7; }
+.dark .speed-test-results { background: #0b1324; }
+.dark .speed-test-results .section-heading h2 { color: #f8fbff; }
+.dark .speed-test-results .section-answer { color: #b8c6d7; }
+.dark .speed-metric-card, .dark .creator-recommendation, .dark .creator-tip-card { border-color: #31445f; background: #16243b; box-shadow: 0 10px 24px rgba(0, 0, 0, .16); }
+.dark .speed-metric-card .speed-metric-label, .dark .speed-metric-card p { color: #b5c4d5; }
+.dark .speed-metric-card strong { color: #f8fbff; }
+.dark .speed-metric-card strong small { color: #b5c4d5; }
+.dark .speed-metric-icon { color: #7db7ff; background: rgba(37, 99, 235, .18); }
+.dark .creator-recommendation h3, .dark .creator-tip-card h3 { color: #f8fbff; }
+.dark .creator-recommendation p, .dark .creator-tip-card p { color: #b8c6d7; }
+.dark .recommendation-badge { color: #a9ceff; background: rgba(37, 99, 235, .2); }
+.dark .creator-recommendation-high { border-color: rgba(74, 222, 128, .42); }
+.dark .creator-recommendation-high .creator-recommendation-icon, .dark .creator-recommendation-high .recommendation-badge { color: #86efac; background: rgba(74, 222, 128, .14); }
+.dark .creator-recommendation-low .creator-recommendation-icon, .dark .creator-recommendation-low .recommendation-badge { color: #fde68a; background: rgba(251, 191, 36, .14); }
+.dark .upload-estimator-section { border-color: #31445f; background: #111d32; }
+.dark .upload-estimator-copy h2, .dark .creator-tips-section h2 { color: #f8fbff; }
+.dark .upload-estimator-copy > p:not(.eyebrow), .dark .upload-estimator-note { color: #b8c6d7; }
+.dark .upload-estimator-note { border-left-color: #60a5fa; background: rgba(37, 99, 235, .14); }
+.dark .upload-estimator-note strong { color: #f8fbff; }
+.dark .upload-calculator { border-color: #31445f; background: #16243b; box-shadow: 0 12px 28px rgba(0, 0, 0, .22); }
+.dark .upload-calculator-heading h3 { color: #f8fbff; }
+.dark .calculator-value { color: #93c5fd; }
+.dark .speed-field-label { color: #b5c4d5; }
+.dark .upload-calculator select, .dark .upload-calculator input { border-color: #405571; color: #f8fbff; background: #0f1a2e; }
+.dark .upload-calculator select:focus, .dark .upload-calculator input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96, 165, 250, .2); }
+.dark .calculator-result { border-color: rgba(96, 165, 250, .42); background: rgba(37, 99, 235, .16); }
+.dark .calculator-result span, .dark .calculator-result small { color: #b8c6d7; }
+.dark .calculator-result strong { color: #f8fbff; }
+.dark .creator-tips-section { background: #0b1324; }
+.dark .creator-tip-card > span { color: #93c5fd; }
+@media (max-width: 768px) {
+  .dark .speed-summary-metric { border-bottom-color: #31445f; }
+}
