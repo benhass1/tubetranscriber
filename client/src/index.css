@@ -667,3 +667,62 @@ body { color: var(--ink); }
 .dark .blog-related-card { border-color: #31445f; background: #16243b; }
 .dark .blog-related-card:hover { border-color: #4b6b96; box-shadow: 0 12px 28px rgba(0, 0, 0, .2); }
 .dark .blog-post-rule { background: #31445f; }
+
+
+/* Global dark-mode readability pass: shared secondary copy across every route. */
+.dark {
+  --muted: #cbd5e1;
+  --line: #354966;
+}
+.dark .hero-lede,
+.dark .section-answer,
+.dark .answer-first,
+.dark .feature-card p,
+.dark .steps-list p,
+.dark .faq-preview span,
+.dark .about-hero > .content-container > p:last-child,
+.dark .about-grid p,
+.dark .faq-list details > p,
+.dark .video-meta,
+.dark .copyright-note,
+.dark .no-matches,
+.dark .page-title-row > div > p:last-child,
+.dark .history-details > p:last-child,
+.dark .history-loading,
+.dark .history-empty p,
+.dark .legal-intro,
+.dark .legal-sections p,
+.dark .post-meta,
+.dark .featured-post-copy > p,
+.dark .blog-card-body p,
+.dark .blog-card-footer,
+.dark .blog-post-excerpt,
+.dark .author-signal,
+.dark .footer-links,
+.dark .footer-inner p {
+  color: #cbd5e1;
+}
+.dark .trust-row,
+.dark .speed-test-private,
+.dark .panel-label,
+.dark .search-field,
+.dark .export-panel button,
+.dark .speed-field-label {
+  color: #c1cedd;
+}
+.dark .url-field input::placeholder {
+  color: #aebed0;
+}
+.dark .feature-list,
+.dark .quote-card cite,
+.dark .quote-card > div > p:last-child,
+.dark .comparison-table tbody td,
+.dark .comparison-table thead th,
+.dark .comparison-table tbody th {
+  color: #c1cedd;
+}
+.dark .footer-links a:hover,
+.dark .desktop-nav a:hover,
+.dark .desktop-nav a.active {
+  color: #f8fbff;
+}
