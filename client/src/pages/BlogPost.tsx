@@ -28,6 +28,8 @@ export default function BlogPost() {
   }
 
   const relatedPosts = blogPosts.filter((candidate) => candidate.slug !== post.slug).slice(0, 3);
+  const takeaways = [...post.takeaways, `Use ${post.keyword} as a starting point, then add your own context and point of view.`].slice(0, 4);
+  const keywordFaq = { question: `How does ${post.keyword} fit a creator workflow?`, answer: `A clear ${post.keyword} workflow starts with an available caption track, a focused question, and a careful review of the source before anything is published.` };
 
   return (
     <SiteShell>
@@ -49,12 +51,19 @@ export default function BlogPost() {
         <div className="blog-post-content">
           <aside className="blog-takeaways" aria-labelledby="takeaways-heading">
             <p className="eyebrow" id="takeaways-heading">In this guide</p>
-            <ul>{post.takeaways.map((takeaway) => <li key={takeaway}><Check size={16} /> <span>{takeaway}</span></li>)}</ul>
+            <ul>{takeaways.map((takeaway) => <li key={takeaway}><Check size={16} /> <span>{takeaway}</span></li>)}</ul>
           </aside>
           <Link href="/" className="blog-post-primary-cta">Try Free Transcript Generator <ArrowRight size={16} /></Link>
 
           <p className="blog-post-intro">{post.intro}</p>
           <p className="blog-inline-links">Start with the <Link href="/">free transcript generator</Link> to turn available captions into a working document, then use the <Link href="/speed-test">YouTube upload speed test</Link> when your publishing workflow depends on a reliable connection.</p>
+
+          <section className="blog-keyword-section">
+            <h2>A practical {post.keyword} checklist</h2>
+            <p>When your search starts with {post.keyword}, define the viewer question before you collect more material. That keeps the workflow focused and makes the final piece more useful.</p>
+            <p>Use {post.keyword} to organize evidence, examples, and next steps, but keep the source link beside your notes. This protects context when the idea moves from research into a script.</p>
+            <p>Finish the {post.keyword} workflow by adding an original angle, checking important details against the video, and choosing the right output for your audience.</p>
+          </section>
 
           {post.sections.map((section) => (
             <section key={section.heading}>
@@ -63,10 +72,16 @@ export default function BlogPost() {
             </section>
           ))}
 
+          <section className="blog-keyword-conclusion">
+            <h2>Make the {post.keyword} workflow yours</h2>
+            <p>The best {post.keyword} workflow leaves room for your own voice, evidence, and audience context. Treat the phrase as a search need, not a substitute for useful guidance.</p>
+            <p>Once your {post.keyword} process is clear, save the source link and turn the next insight into an original brief, script, or production decision.</p>
+          </section>
+
           <section className="blog-faq" aria-labelledby="faq-heading">
             <p className="eyebrow">Common questions</p>
             <h2 id="faq-heading">FAQ for creators</h2>
-            {FAQ_ITEMS.map((item, index) => <details key={item.question} open={index === 0}><summary>{item.question}</summary><p>{item.answer}</p></details>)}
+            {[keywordFaq, ...FAQ_ITEMS.slice(0, 3)].map((item, index) => <details key={item.question} open={index === 0}><summary>{item.question}</summary><p>{item.answer}</p></details>)}
           </section>
 
           <Link href="/blog" className="blog-post-end-link"><ArrowLeft size={15} /> Explore more from the journal</Link>
