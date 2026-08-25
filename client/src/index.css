@@ -346,3 +346,11 @@ body { color: var(--ink); }
 @media (max-width: 760px) {
   .speed-test-live-container { padding-top: 18px; }.speed-test-back-link { font-size: 11px; }.speed-test-live-topline { padding: 27px 0 17px; }.speed-test-live-topline h1 { font-size: clamp(32px, 9.5vw, 40px); line-height: 1.02; }.speed-test-live-kicker { margin-bottom: 10px; font-size: 9px; }.speed-test-live-badge { margin-top: 12px; padding: 7px 9px; }.speed-top-action { align-items: stretch; flex-direction: column; gap: 8px; margin-bottom: 11px; }.speed-top-action .speed-gauge-button { width: 100%; min-height: 46px; }.speed-top-action > span { padding-left: 2px; font-size: 9px; }.speed-results-summary { border-radius: 11px; }.speed-summary-metric { min-height: 64px; padding: 10px 15px; }.speed-summary-metric strong { font-size: 25px; }.speed-summary-metric span { margin-bottom: 4px; font-size: 9px; }.speed-health-row { margin-top: 8px; padding: 4px 2px; }.speed-health-item { padding: 8px 6px; font-size: 9px; }.speed-health-item strong { font-size: 9px; }.speed-gauge-layout { padding-top: 21px; }.speed-gauge-wrap { max-width: 360px; }.speed-gauge-copy > p:not(.speed-test-live-kicker) { font-size: 12px; }
 }
+
+/* Keep the mobile-first hierarchy active through the requested 768px breakpoint. */
+@media (max-width: 768px) {
+  .speed-top-action { flex-direction: column; align-items: stretch; gap: 8px; margin-bottom: 11px; }
+  .speed-top-action .speed-gauge-button { width: 100%; min-height: 46px; }
+  .speed-top-action > span { padding-left: 2px; font-size: 9px; }
+  .speed-gauge-wrap { width: min(100%, 360px); }
+}
