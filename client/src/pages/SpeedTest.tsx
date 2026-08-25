@@ -306,8 +306,8 @@ export default function SpeedTest() {
             <div className="speed-test-live-topline"><div><p className="speed-test-live-kicker"><MonitorUp size={14} /> Creator network toolkit</p><h1>YouTube Upload Speed Test <span>&amp; Time Estimator</span></h1></div><span className="speed-test-live-badge"><RadioTower size={14} /> Live browser test</span></div>
             <div className="speed-results-summary" aria-live="polite">
               <article className="speed-summary-metric speed-summary-ping"><Zap size={18} /><div><span>Ping / Latency</span><strong>{livePing === null ? "—" : Math.round(livePing)}<small> ms</small></strong></div></article>
-              <article className="speed-summary-metric"><ArrowDownToLine size={18} /><div><span>Download Speed</span><strong>{liveDownload === null ? "—" : formatMbps(liveDownload)}<small> Mbps</small></strong></div></article>
-              <article className="speed-summary-metric speed-summary-upload"><ArrowUpFromLine size={18} /><div><span>Upload Speed</span><strong>{liveUpload === null ? "—" : formatMbps(liveUpload)}<small> Mbps</small></strong></div></article>
+              <article className="speed-summary-metric"><ArrowDownToLine size={18} /><div><span>Download Speed</span><strong>{liveDownload === null ? "0.00" : formatMbps(liveDownload)}<small> Mbps</small></strong></div></article>
+              <article className="speed-summary-metric speed-summary-upload"><ArrowUpFromLine size={18} /><div><span>Upload Speed</span><strong>{liveUpload === null ? "0.00" : formatMbps(liveUpload)}<small> Mbps</small></strong></div></article>
             </div>
             <div className="speed-health-row" aria-label="Connection health indicators">{healthItems.map(item => <div key={item.label} className={`speed-health-item speed-health-${item.tone}`}><span className="speed-health-dot" /><span>{item.label}</span><strong>{item.detail}</strong></div>)}</div>
 
