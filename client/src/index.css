@@ -726,3 +726,25 @@ body { color: var(--ink); }
 .dark .desktop-nav a.active {
   color: #f8fbff;
 }
+
+
+/* Final Blog mobile layout: one readable article card per row, never squeezed into columns. */
+@media (max-width: 760px) {
+  .blog-grid { grid-template-columns: minmax(0, 1fr); width: 100%; }
+  .blog-card { width: 100%; min-width: 0; }
+  .blog-card-body h3 { font-size: 24px; line-height: 1.2; overflow-wrap: anywhere; }
+  .blog-card-body p { font-size: 14px; line-height: 1.7; }
+  .blog-card-footer { grid-template-columns: 1fr auto; gap: 8px 10px; align-items: center; }
+  .blog-card-footer > span { min-width: 0; }
+}
+
+/* Keep the Blog hero and article surfaces consistent with the global dark theme. */
+.dark .blog-page-clean { background: #0b1324; }
+.dark .blog-hero-clean { background: linear-gradient(180deg, #0f172a 0%, #0b1324 100%); }
+.dark .blog-section-heading-clean > p { color: #cbd5e1; }
+.dark .featured-post-card-clean, .dark .blog-card { border-color: #354966; background: #17243a; box-shadow: 0 10px 24px rgba(0, 0, 0, .18); }
+.dark .featured-post-copy h3, .dark .blog-card-body h3, .dark .blog-card-body h3 a { color: #f8fbff; }
+.dark .featured-post-copy > p, .dark .blog-card-body p, .dark .blog-card-footer { color: #cbd5e1; }
+.dark .blog-filter { border-color: #48617f; color: #cbd5e1; background: rgba(23, 36, 58, .88); }
+.dark .blog-filter:hover { border-color: #7db7ff; color: #f8fbff; background: rgba(37, 99, 235, .2); }
+.dark .blog-filter.active { border-color: #60a5fa; color: #fff; background: #2563eb; }
