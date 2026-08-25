@@ -491,3 +491,59 @@ body { color: var(--ink); }
   .blog-feature-section { padding-top: 24px; }
   .blog-feature-section .blog-section-heading-clean { margin-bottom: 14px; }
 }
+
+
+/* Expanded About page */
+.about-page { background: var(--bg); }
+.about-hero-expanded { padding: 78px 0 70px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%); }
+.about-hero-expanded h1 { max-width: 850px; margin: 0; font: 800 clamp(44px, 6vw, 74px)/1.02 Inter, Arial, sans-serif; letter-spacing: -.065em; }
+.about-hero-expanded h1 span { color: var(--hot); }
+.about-hero-lede { max-width: 690px; margin: 22px 0 0; color: var(--ink); font-size: 20px; line-height: 1.55; }
+.about-hero-supporting { max-width: 650px; margin: 13px 0 0; color: var(--muted); font-size: 15px; line-height: 1.75; }
+.about-intro-section { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(270px, .8fr); gap: 70px; align-items: center; padding-top: 76px; padding-bottom: 78px; }
+.about-intro-copy { max-width: 700px; }
+.about-intro-copy h2, .about-section-heading h2, .about-links-panel h2 { max-width: 640px; margin: 0; font: 800 clamp(30px, 3.6vw, 45px)/1.08 Inter, Arial, sans-serif; letter-spacing: -.055em; }
+.about-intro-copy > p:not(.eyebrow) { margin: 20px 0 0; color: var(--muted); font-size: 15px; line-height: 1.85; }
+.about-intro-copy strong { color: var(--ink); }
+.about-callout { padding: 28px; border: 1px solid #bfdbfe; border-radius: 18px; background: linear-gradient(145deg, #eff6ff, #fff); box-shadow: 0 14px 30px rgba(37, 99, 235, .07); }
+.about-callout > svg { color: var(--hot); margin-bottom: 26px; }
+.about-callout .eyebrow { margin-bottom: 9px; }
+.about-callout h3 { margin: 0 0 10px; font: 800 24px/1.15 Inter, Arial, sans-serif; letter-spacing: -.04em; }
+.about-callout > p:last-child { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.75; }
+.about-workflow-section { padding: 76px 0 82px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); }
+.about-section-heading { max-width: 760px; margin-bottom: 30px; }
+.about-section-heading .eyebrow { margin-bottom: 13px; }
+.about-section-heading .section-answer { max-width: 650px; margin: 16px 0 0; color: var(--muted); font-size: 14px; line-height: 1.75; }
+.about-workflow-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.about-workflow-card, .about-detail-card { padding: 26px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); }
+.about-workflow-card-top { display: flex; justify-content: space-between; align-items: center; color: var(--hot); }
+.about-workflow-card-top span { font: 500 12px "IBM Plex Mono", monospace; }
+.about-workflow-card h3, .about-detail-card h3 { margin: 28px 0 10px; font: 800 18px/1.25 Inter, Arial, sans-serif; letter-spacing: -.035em; }
+.about-workflow-card p, .about-detail-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.75; }
+.about-details-section { padding-top: 78px; padding-bottom: 80px; }
+.about-details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.about-detail-card > svg { color: var(--hot); }
+.about-detail-card-warning > svg { color: #d97706; }
+.about-detail-card h3 { margin-top: 18px; }
+.about-links-section { padding-bottom: 78px; }
+.about-links-panel { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(260px, .9fr); gap: 52px; align-items: center; padding: 35px; border: 1px solid #bfdbfe; border-radius: 18px; background: var(--surface); box-shadow: 0 12px 26px rgba(37, 99, 235, .06); }
+.about-links-panel > div:first-child > p:last-child { max-width: 560px; margin: 16px 0 0; color: var(--muted); font-size: 14px; line-height: 1.75; }
+.about-policy-links { display: grid; gap: 9px; }
+.about-policy-links a { display: flex; align-items: center; gap: 8px; padding: 12px 14px; color: var(--hot-deep); border: 1px solid var(--line); border-radius: 9px; background: var(--bg); font-size: 12px; font-weight: 800; }
+.about-policy-links a svg:last-child { margin-left: auto; }
+.about-policy-links a:hover { border-color: #93c5fd; background: #eff6ff; }
+.about-faq-section { padding-top: 0; }
+
+@media (max-width: 760px) {
+  .about-hero-expanded { padding: 48px 0 44px; }
+  .about-hero-expanded h1 { font-size: 42px; }
+  .about-hero-lede { font-size: 17px; }
+  .about-intro-section { grid-template-columns: 1fr; gap: 30px; padding-top: 52px; padding-bottom: 56px; }
+  .about-intro-copy h2, .about-section-heading h2, .about-links-panel h2 { font-size: 31px; }
+  .about-workflow-section { padding: 55px 0 60px; }
+  .about-workflow-grid, .about-details-grid { grid-template-columns: 1fr; }
+  .about-details-section { padding-top: 57px; padding-bottom: 60px; }
+  .about-links-section { padding-bottom: 60px; }
+  .about-links-panel { grid-template-columns: 1fr; gap: 26px; padding: 25px 21px; }
+  .about-callout, .about-workflow-card, .about-detail-card { padding: 22px; }
+}
