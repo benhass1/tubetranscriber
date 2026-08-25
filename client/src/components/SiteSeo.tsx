@@ -60,15 +60,9 @@ const pageCopy: Record<string, { title: string; description: string }> = {
   "/contact": { title: "Contact", description: "Contact TubeTranscriber with questions about the service, transcript workflows, public caption access, or copyright concerns and requests when needed.", },
 };
 
-const postMetaDescriptions: Record<string, string> = {
-  "extract-download-youtube-transcripts": "Learn how to extract public YouTube transcripts quickly, search captions, and download clean TXT, JSON, or SRT files for research and content workflows.",
-  "convert-youtube-videos-to-srt": "Convert YouTube captions into SRT subtitles with timing intact, then move the file into your video editing workflow with less manual cleanup.",
-  "youtube-transcripts-content-creation": "Discover five practical ways to use YouTube transcripts for research, repurposing, theme comparison, content outlines, and faster team review workflows.",
-};
-
 function getPageCopy(path: string) {
   const post = path.startsWith("/blog/") ? findBlogPost(path.slice("/blog/".length)) : undefined;
-  const copy = pageCopy[path] ?? (post ? { title: post.title, description: postMetaDescriptions[post.slug] ?? post.excerpt } : pageCopy["/"]!);
+  const copy = pageCopy[path] ?? (post ? { title: post.title, description: post.seoDescription } : pageCopy["/"]!);
   return { post, copy };
 }
 

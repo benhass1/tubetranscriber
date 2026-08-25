@@ -1,3 +1,5 @@
+import { findBlogPost } from "../pages/blogData";
+
 export type HeadMeta = {
   title: string;
   description: string;
@@ -45,6 +47,10 @@ export function getHeadMeta(url: string): HeadMeta {
   if (path === "/history") return { title: "Local Transcript History | TubeTranscriber", description: "View transcript lookups saved privately in this browser.", noindex: true };
   if (path === "/transcript") return { title: "YouTube Transcript Reader | TubeTranscriber", description: "Read, search, copy, and export a YouTube transcript.", noindex: true };
   if (path === "/speed-test") return { title: "YouTube Upload Speed Test | TubeTranscriber", description: "Measure upload speed and estimate YouTube video upload times for 1080p, 4K, and custom creator video files.", canonicalPath: "/speed-test" };
+  if (path.startsWith("/blog/")) {
+    const post = findBlogPost(path.slice("/blog/".length));
+    if (post) return { title: `${post.title} | TubeTranscriber`, description: post.seoDescription, canonicalPath: path, jsonLd: { "@context": "https://schema.org", "@type": "BlogPosting", headline: post.title, description: post.seoDescription, articleSection: post.category, datePublished: post.date, image: post.imageUrl } };
+  }
   return { title: `Page Not Found | ${SITE}`, description: DEFAULT_DESCRIPTION, notFound: true, noindex: true };
 }
 

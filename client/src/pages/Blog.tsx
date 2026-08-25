@@ -13,7 +13,7 @@ export default function Blog() {
           <p className="eyebrow"><BookOpen size={14} /> The journal</p>
           <h1>The Transcript <span>Journal</span></h1>
           <p>Practical guides, workflow tips, and articles on video caption extraction and content strategy.</p>
-          <p className="author-signal">Maintained by the TubeTranscriber Engineering Team</p>
+          <p className="author-signal">20 creator-focused guides, maintained by the TubeTranscriber Engineering Team</p>
         </div>
       </section>
 
@@ -27,7 +27,10 @@ export default function Blog() {
         </div>
 
         <Link href={`/blog/${featuredPost.slug}`} className="featured-post-card">
-          <div className="featured-post-art" aria-hidden="true"><span>01</span><BookOpen size={54} strokeWidth={1.2} /></div>
+          <div className="featured-post-art">
+            <img src={featuredPost.imageUrl} alt={featuredPost.imageAlt} loading="eager" />
+            <span>01</span>
+          </div>
           <div className="featured-post-copy">
             <div className="post-meta"><span>{featuredPost.category}</span><span className="meta-dot" /><span>{featuredPost.date}</span><span className="meta-dot" /><span><Clock3 size={13} /> {featuredPost.readTime}</span></div>
             <h3>{featuredPost.title}</h3>
@@ -47,7 +50,7 @@ export default function Blog() {
         <div className="blog-grid">
           {supportingPosts.map((post, index) => (
             <article className={`blog-card blog-card-${post.accent}`} key={post.slug}>
-              <div className="blog-card-top"><span className="blog-card-number">0{index + 2}</span><span className="post-category">{post.category}</span></div>
+              <div className="blog-card-top"><span className="blog-card-number">{String(index + 2).padStart(2, "0")}</span><span className="post-category">{post.category}</span></div>
               <div className="blog-card-body">
                 <h3><Link href={`/blog/${post.slug}`}>{post.title}</Link></h3>
                 <p>{post.excerpt}</p>
