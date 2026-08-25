@@ -480,3 +480,14 @@ body { color: var(--ink); }
   .blog-grid { gap: 16px; }
   .blog-card-art { height: 164px; }
 }
+
+
+/* Keep the first blog article above the fold */
+.blog-hero-clean .blog-hero-inner { padding-top: 44px; padding-bottom: 34px; }
+.blog-feature-section { padding-top: 30px; }
+.blog-feature-section .blog-section-heading-clean { margin-bottom: 16px; }
+@media (max-width: 760px) {
+  .blog-hero-clean .blog-hero-inner { padding-top: 32px; padding-bottom: 26px; }
+  .blog-feature-section { padding-top: 24px; }
+  .blog-feature-section .blog-section-heading-clean { margin-bottom: 14px; }
+}
