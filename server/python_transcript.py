@@ -492,8 +492,11 @@ def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
     for fetcher in (_fetch_innertube_transcript, _fetch_direct_transcript):
         try:
             return fetcher(video_id)
-        except YouTubeRateLimitError:
-            raise
+        except YouTubeRateLimitError as error:
+            # The Worker and WARP may use different egress paths. Keep the
+            # library fallback available before returning a final 429.
+            prior_errors.append(error)
+            continue
         except RuntimeError as error:
             prior_errors.append(error)
 
