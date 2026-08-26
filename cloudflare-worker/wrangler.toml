@@ -1,0 +1,6 @@
+name = "tubetranscriber-transcript-proxy"
+main = "worker.js"
+compatibility_date = "2026-08-26"
+
+[vars]
+# Set WORKER_AUTH_TOKEN as an encrypted secret with `wrangler secret put`.

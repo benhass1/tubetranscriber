@@ -50,13 +50,10 @@ def _proxy_mapping() -> dict[str, str] | None:
     if warp_proxy:
         return {"http": warp_proxy, "https": warp_proxy}
 
-    # Backward-compatible opt-out path for environments that still use the
-    # previous HTTP relay. WARP is preferred whenever it is enabled.
-    cf_proxy = os.getenv("CF_WORKER_PROXY", "").strip()
-    if not cf_proxy:
-        return None
-    proxy_url = cf_proxy if cf_proxy.endswith("?url=") else f"{cf_proxy}?url="
-    return {"http": proxy_url, "https": proxy_url}
+    # Cloudflare Worker requests are wrapped explicitly by _youtube_request;
+    # they are not HTTP CONNECT proxies and must not be passed to requests'
+    # session.proxies mapping.
+    return None
 
 
 def _youtube_cookie_file() -> str | None:
@@ -133,6 +130,34 @@ def _youtube_session() -> requests.Session:
             # extraction from being attempted.
             pass
     return session
+
+
+def _worker_target_url(target_url: str) -> str:
+    """Wrap a YouTube URL in the configured Cloudflare Worker endpoint."""
+    worker_url = os.getenv("CF_WORKER_PROXY", "").strip()
+    if not worker_url:
+        return target_url
+    if worker_url.endswith("?url="):
+        worker_url = worker_url[:-5]
+    elif worker_url.endswith("&url="):
+        worker_url = worker_url[:-5]
+    parts = urlsplit(worker_url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["url"] = target_url
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+def _youtube_request(session: requests.Session, method: str, target_url: str, **kwargs: Any) -> requests.Response:
+    """Send a YouTube request directly or through the configured Worker."""
+    worker_url = os.getenv("CF_WORKER_PROXY", "").strip()
+    if worker_url:
+        headers = dict(kwargs.pop("headers", {}) or {})
+        auth_token = os.getenv("CF_WORKER_AUTH_TOKEN", "").strip()
+        if auth_token:
+            headers["x-proxy-auth"] = auth_token
+        kwargs["headers"] = headers
+        return session.request(method, _worker_target_url(target_url), **kwargs)
+    return session.request(method, target_url, **kwargs)
 
 
 def _parse_player_response(page: str) -> dict[str, Any]:
@@ -237,7 +262,7 @@ def _fetch_innertube_transcript(video_id: str) -> list[dict[str, Any]]:
     }
     session = _youtube_session()
     try:
-        response = session.post(innertube_url, json=payload, timeout=20)
+        response = _youtube_request(session, "POST", innertube_url, json=payload, timeout=20)
         response.raise_for_status()
         player_data = response.json()
     except (requests.RequestException, ValueError) as error:
@@ -263,7 +288,7 @@ def _fetch_innertube_transcript(video_id: str) -> list[dict[str, Any]]:
     caption_url = _caption_url_with_po_token(caption_url, token_details)
 
     try:
-        caption_response = session.get(caption_url, timeout=20)
+        caption_response = _youtube_request(session, "GET", caption_url, timeout=20)
         caption_response.raise_for_status()
         return _parse_caption_payload(caption_response.text)
     except requests.RequestException as error:
@@ -277,7 +302,7 @@ def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
     watch_url = f"https://www.youtube.com/watch?v={video_id}"
     with _youtube_session() as session:
         try:
-            response = session.get(watch_url, timeout=20)
+            response = _youtube_request(session, "GET", watch_url, timeout=20)
             response.raise_for_status()
         except requests.RequestException as error:
             raise RuntimeError(f"Failed to reach YouTube page: {error}") from error
@@ -297,7 +322,7 @@ def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
 
         caption_url = _caption_url_with_po_token(caption_url, token_details)
         try:
-            caption_response = session.get(caption_url, timeout=20)
+            caption_response = _youtube_request(session, "GET", caption_url, timeout=20)
             caption_response.raise_for_status()
         except requests.RequestException as error:
             raise RuntimeError(f"Failed to fetch the signed caption track: {error}") from error
