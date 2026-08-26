@@ -76,6 +76,16 @@ class TranscriptBridgeTests(unittest.TestCase):
         with self.assertRaises(bridge.NoCaptionsError):
             bridge._select_caption_track([])
 
+    def test_language_selection_defaults_to_original_and_adds_translation_target(self):
+        tracks = [
+            {"languageCode": "es", "name": "Spanish", "baseUrl": "https://example/caption?lang=es"},
+            {"languageCode": "en", "name": "English", "baseUrl": "https://example/caption?lang=en"},
+        ]
+        original, translated = bridge._select_language_track(tracks, "fr")
+        self.assertEqual(original["languageCode"], "es")
+        self.assertEqual(translated["languageCode"], "fr")
+        self.assertIn("tlang=fr", translated["baseUrl"])
+
     def test_json3_payload_is_parsed(self):
         payload = json.dumps({"events": [{"tStartMs": 1250, "dDurationMs": 2000, "segs": [{"utf8": "Hello"}]}]})
         self.assertEqual(bridge._parse_caption_payload(payload), [{"text": "Hello", "start": 1.25, "duration": 2.0}])

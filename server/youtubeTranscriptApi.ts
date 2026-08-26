@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
-import type { TranscriptSegment } from "@shared/transcript";
+import type { TranscriptLanguage, TranscriptSegment } from "@shared/transcript";
 
 export class YouTubeTranscriptApiError extends Error {
   constructor(public readonly kind: string, message: string) {
@@ -12,6 +12,9 @@ export class YouTubeTranscriptApiError extends Error {
 type PythonResponse = {
   segments?: TranscriptSegment[];
   plainText?: string;
+  originalLanguage?: TranscriptLanguage;
+  selectedLanguage?: TranscriptLanguage;
+  availableLanguages?: TranscriptLanguage[];
   kind?: string;
   message?: string;
 };
@@ -25,7 +28,12 @@ export function formatWorkerProxy(value = process.env.CF_WORKER_PROXY ?? "") {
   return proxy ? (proxy.endsWith("?url=") ? proxy : `${proxy}?url=`) : null;
 }
 
-export async function extractWithYouTubeTranscriptApi(videoId: string): Promise<TranscriptSegment[]> {
+export async function extractWithYouTubeTranscriptApi(videoId: string, languageCode?: string): Promise<{
+  segments: TranscriptSegment[];
+  originalLanguage?: TranscriptLanguage;
+  selectedLanguage?: TranscriptLanguage;
+  availableLanguages?: TranscriptLanguage[];
+}> {
   return new Promise((resolve, reject) => {
     const child = spawn("python3", [bridgePath], { stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
@@ -40,7 +48,12 @@ export async function extractWithYouTubeTranscriptApi(videoId: string): Promise<
       let payload: PythonResponse | undefined;
       try { payload = JSON.parse(stdout) as PythonResponse; } catch { /* handled below */ }
       if (code === 0 && payload?.segments) {
-        resolve(payload.segments);
+        resolve({
+          segments: payload.segments,
+          originalLanguage: payload.originalLanguage,
+          selectedLanguage: payload.selectedLanguage,
+          availableLanguages: payload.availableLanguages,
+        });
         return;
       }
       if (payload?.message) {
@@ -49,6 +62,6 @@ export async function extractWithYouTubeTranscriptApi(videoId: string): Promise<
       }
       reject(new YouTubeTranscriptApiError("upstream_error", stderr.trim() || "Transcript extraction failed."));
     });
-    child.stdin.end(videoId);
+    child.stdin.end(JSON.stringify({ videoId, languageCode: languageCode || null }));
   });
 }
