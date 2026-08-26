@@ -1,0 +1,140 @@
+import type { TranscriptSegment } from "@shared/transcript";
+
+export type BrowserTranscriptResult = {
+  metadata: {
+    videoId: string;
+    title: string;
+    channel: string;
+    thumbnailUrl: string;
+    durationSeconds: number | null;
+  };
+  segments: TranscriptSegment[];
+};
+
+type CaptionTrack = {
+  id?: string;
+  langCode: string;
+  kind?: string;
+  name?: string;
+  tlang?: string;
+};
+
+function videoIdFromInput(value: string) {
+  const candidate = value.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(candidate)) return candidate;
+  try {
+    const url = new URL(candidate);
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    let id = "";
+    if (host === "youtu.be") id = url.pathname.split("/").filter(Boolean)[0] ?? "";
+    if (host === "youtube.com" || host.endsWith(".youtube.com")) {
+      if (url.pathname === "/watch") id = url.searchParams.get("v") ?? "";
+      else if (["/shorts", "/embed", "/live"].some(prefix => url.pathname.startsWith(prefix))) {
+        id = url.pathname.split("/").filter(Boolean)[1] ?? "";
+      }
+    }
+    return /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+function chooseTrack(tracks: CaptionTrack[]) {
+  const valid = tracks.filter(track => /^[a-z]{2}(?:-[A-Z]{2})?$/i.test(track.langCode));
+  const english = valid.filter(track => track.langCode.toLowerCase().startsWith("en"));
+  return english.find(track => track.kind !== "asr") ?? english[0] ?? valid[0] ?? null;
+}
+
+export function buildBrowserCaptionUrl(videoId: string, track: CaptionTrack) {
+  const params = new URLSearchParams({ v: videoId, lang: track.langCode, fmt: "json3" });
+  if (track.kind) params.set("kind", track.kind);
+  if (track.name) params.set("name", track.name);
+  if (track.id) params.set("tlang", track.id);
+  if (track.tlang) params.set("tlang", track.tlang);
+  return `https://www.youtube.com/api/timedtext?${params.toString()}`;
+}
+
+export function parseBrowserJson3(payload: string): TranscriptSegment[] {
+  if (!payload.trim()) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payload);
+  } catch {
+    return [];
+  }
+  if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as { events?: unknown }).events)) return [];
+  const segments: TranscriptSegment[] = [];
+  for (const event of (parsed as { events: Array<{ tStartMs?: number; dDurationMs?: number; segs?: Array<{ utf8?: string }> }> }).events) {
+    const text = (event.segs ?? []).map(segment => segment.utf8 ?? "").join("").replace(/\s+/g, " ").trim();
+    if (text) segments.push({ start: (event.tStartMs ?? 0) / 1000, duration: (event.dDurationMs ?? 0) / 1000, text });
+  }
+  return segments;
+}
+
+function parseXml(payload: string): TranscriptSegment[] {
+  if (!payload.trim()) return [];
+  const document = new DOMParser().parseFromString(payload, "text/xml");
+  if (document.querySelector("parsererror")) return [];
+  return Array.from(document.getElementsByTagName("text")).map(node => ({
+    start: Number(node.getAttribute("start") ?? 0),
+    duration: Number(node.getAttribute("dur") ?? 0),
+    text: (node.textContent ?? "").replace(/\s+/g, " ").trim(),
+  })).filter(segment => segment.text);
+}
+
+async function fetchTracks(videoId: string) {
+  const response = await fetch(`https://www.youtube.com/api/timedtext?type=list&v=${encodeURIComponent(videoId)}`, {
+    mode: "cors",
+    credentials: "omit",
+    headers: { Accept: "application/xml,text/xml,*/*" },
+  });
+  if (!response.ok) throw new Error(`YouTube caption list request failed (${response.status}).`);
+  const payload = await response.text();
+  if (!payload.trim()) return [] as CaptionTrack[];
+  const document = new DOMParser().parseFromString(payload, "text/xml");
+  if (document.querySelector("parsererror")) return [] as CaptionTrack[];
+  return Array.from(document.getElementsByTagName("track")).map(node => ({
+    id: node.getAttribute("id") ?? undefined,
+    langCode: node.getAttribute("lang_code") ?? "",
+    kind: node.getAttribute("kind") ?? undefined,
+    name: node.getAttribute("name") ?? undefined,
+    tlang: node.getAttribute("tlang") ?? undefined,
+  }));
+}
+
+async function fetchMetadata(videoId: string) {
+  const fallback = {
+    videoId,
+    title: "YouTube video",
+    channel: "YouTube",
+    thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+    durationSeconds: null,
+  };
+  try {
+    const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`, { mode: "cors", credentials: "omit" });
+    if (!response.ok) return fallback;
+    const payload = await response.json() as { title?: string; author_name?: string; thumbnail_url?: string };
+    return { ...fallback, title: payload.title?.trim() || fallback.title, channel: payload.author_name?.trim() || fallback.channel, thumbnailUrl: payload.thumbnail_url || fallback.thumbnailUrl };
+  } catch {
+    return fallback;
+  }
+}
+
+export async function fetchBrowserTranscript(sourceUrl: string): Promise<BrowserTranscriptResult> {
+  const videoId = videoIdFromInput(sourceUrl);
+  if (!videoId) throw new Error("Paste a valid YouTube video link before trying browser extraction.");
+  const tracks = await fetchTracks(videoId);
+  if (!tracks.length) throw new Error("No public caption track was exposed to this browser.");
+
+  const orderedTracks = [chooseTrack(tracks), ...tracks].filter((track, index, all): track is CaptionTrack => Boolean(track) && all.findIndex(candidate => candidate?.langCode === track?.langCode && candidate?.kind === track?.kind && candidate?.name === track?.name) === index);
+  for (const track of orderedTracks) {
+    const response = await fetch(buildBrowserCaptionUrl(videoId, track), { mode: "cors", credentials: "omit", headers: { Accept: "application/json,application/xml,text/xml,*/*" } });
+    if (!response.ok) continue;
+    const payload = await response.text();
+    const segments = parseBrowserJson3(payload);
+    if (segments.length) return { metadata: await fetchMetadata(videoId), segments };
+    const xmlSegments = parseXml(payload);
+    if (xmlSegments.length) return { metadata: await fetchMetadata(videoId), segments: xmlSegments };
+  }
+  throw new Error("YouTube exposed caption tracks, but returned no readable caption text to this browser.");
+}

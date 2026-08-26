@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
@@ -41,6 +42,42 @@ export const appRouter = router({
         await setCachedTranscript(videoId, result);
       } catch (error) {
         console.warn("[TranscriptCache] write failed; transcript still returned", error instanceof Error ? error.message : "unknown error");
+      }
+      return result;
+    }),
+    ingestBrowser: publicProcedure.input(z.object({
+      url: z.string().min(1).max(2048),
+      metadata: z.object({
+        videoId: z.string().regex(/^[a-zA-Z0-9_-]{11}$/),
+        title: z.string().trim().min(1).max(500),
+        channel: z.string().trim().min(1).max(300),
+        thumbnailUrl: z.string().url().max(2048),
+        durationSeconds: z.number().nonnegative().nullable(),
+      }),
+      segments: z.array(z.object({
+        start: z.number().finite().nonnegative(),
+        duration: z.number().finite().nonnegative(),
+        text: z.string().trim().min(1).max(4000),
+      })).min(1).max(20000),
+    })).mutation(async ({ input, ctx }) => {
+      const videoId = parseYoutubeId(input.url);
+      if (!videoId || videoId !== input.metadata.videoId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The browser transcript does not match the supplied YouTube video." });
+      }
+
+      const result = {
+        metadata: { ...input.metadata, videoId },
+        segments: input.segments.map(segment => ({ ...segment, text: segment.text.replace(/\s+/g, " ").trim() })).filter(segment => segment.text),
+      };
+      if (!result.segments.length) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The browser returned no readable caption text." });
+      }
+
+      ctx.res.setHeader("X-Cache-Status", "BROWSER");
+      try {
+        await setCachedTranscript(videoId, result);
+      } catch (error) {
+        console.warn("[TranscriptCache] browser write failed; transcript still returned", error instanceof Error ? error.message : "unknown error");
       }
       return result;
     }),
