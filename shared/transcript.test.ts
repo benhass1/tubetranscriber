@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupTranscript, plainTranscript, toSrt, toTxt, type TranscriptSegment } from "./transcript";
+import { groupTranscript, plainTranscript, toMarkdown, toSrt, toTxt, toVtt, type TranscriptSegment } from "./transcript";
 
 const segments: TranscriptSegment[] = [
   { start: 0, duration: 1.2, text: "Welcome to TubeTranscriber." },
@@ -17,6 +17,12 @@ describe("transcript exports", () => {
     const output = toSrt(segments);
     expect(output).toContain("1\n00:00:00,000 --> 00:00:01,200\nWelcome to TubeTranscriber.");
     expect(output).toContain("2\n00:01:01,400 --> 00:01:03,800\nThis is the second caption.");
+  });
+
+  it("creates VTT and Markdown exports", () => {
+    expect(toVtt(segments)).toContain("WEBVTT\n\n00:00:00.000 --> 00:00:01.200\nWelcome to TubeTranscriber.");
+    expect(toMarkdown({ title: "Demo video", channel: "Demo channel" }, segments)).toContain("# Demo video\n\n_Source: Demo channel_");
+    expect(toMarkdown({ title: "Demo video", channel: "Demo channel" }, segments)).toContain("**[00:01:01]** This is the second caption.");
   });
 
   it("groups adjacent caption moments into readable timestamped paragraphs", () => {

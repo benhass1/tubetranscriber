@@ -43,6 +43,26 @@ export function toSrt(segments: TranscriptSegment[]) {
   }).join("\n\n");
 }
 
+export function toVtt(segments: TranscriptSegment[]) {
+  return `WEBVTT\n\n${segments.map(segment => {
+    const end = segment.start + Math.max(segment.duration, 0.5);
+    return `${vttTimestamp(segment.start)} --> ${vttTimestamp(end)}\n${segment.text.trim()}`;
+  }).join("\n\n")}\n`;
+}
+
+function vttTimestamp(seconds: number) {
+  const safe = Math.max(0, seconds);
+  const hours = Math.floor(safe / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
+  const secs = Math.floor(safe % 60);
+  const millis = Math.round((safe - Math.floor(safe)) * 1000);
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(millis).padStart(3, "0")}`;
+}
+
+export function toMarkdown(metadata: { title: string; channel: string }, segments: TranscriptSegment[]) {
+  return `# ${metadata.title}\n\n_Source: ${metadata.channel}_\n\n${segments.map(segment => `**[${timestamp(segment.start, true)}]** ${segment.text.trim()}`).join("\n\n")}\n`;
+}
+
 export function groupTranscript(segments: TranscriptSegment[]): TranscriptGroup[] {
   return segments.reduce<TranscriptGroup[]>((groups, segment) => {
     const text = segment.text.trim();
