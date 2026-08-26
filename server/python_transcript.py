@@ -913,15 +913,24 @@ def _fetch_ytdlp_transcript(video_id: str) -> list[dict[str, Any]]:
     if not tracks:
         raise NoCaptionsError("No public captions are available for this video.")
 
-    def rank(item: tuple[str, bool, list[dict[str, Any]]]) -> tuple[int, int]:
-        language, is_asr, _formats = item
-        normalized = language.lower()
-        english = normalized in {"en", "en-us", "en-gb"} or normalized.startswith("en-")
-        return (0 if english and not is_asr else 1 if english else 2 if is_asr else 3, 0)
+    preferred_language = str(info.get("language") or info.get("original_language") or "").strip().lower()
+    if preferred_language:
+        preferred_base = preferred_language.split("-", 1)[0]
+        preferred_index = next(
+            (
+                index
+                for index, item in enumerate(tracks)
+                if item[0].lower() == preferred_language
+                or item[0].lower().split("-", 1)[0] == preferred_base
+            ),
+            None,
+        )
+        if preferred_index is not None:
+            tracks = [tracks[preferred_index], *tracks[:preferred_index], *tracks[preferred_index + 1:]]
 
     session = _youtube_session()
     try:
-        for _language, _is_asr, formats in sorted(tracks, key=rank):
+        for _language, _is_asr, formats in tracks:
             ordered_formats = sorted(
                 (item for item in formats if str(item.get("url", "")).strip()),
                 key=lambda item: {"json3": 0, "vtt": 1, "srv3": 2, "xml": 3}.get(str(item.get("ext", "")).lower(), 4),
@@ -1003,10 +1012,7 @@ def _youtube_transcript_api_fetch(video_id: str) -> list[dict[str, Any]]:
     tracks = list(transcript_list)
     if not tracks:
         raise RuntimeError("No transcript found in any language for this video.")
-    try:
-        transcript = transcript_list.find_transcript(["en", "en-US", "en-GB"])
-    except NoTranscriptFound:
-        transcript = tracks[0]
+    transcript = tracks[0]
     fetched = transcript.fetch()
     if not fetched:
         raise RuntimeError("YouTube returned an empty transcript response.")

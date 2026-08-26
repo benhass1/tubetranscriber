@@ -4,7 +4,7 @@ import type { ExtractedTranscript } from "./transcript";
 export const TRANSCRIPT_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 function cacheKey(videoId: string) {
-  return `transcript:v4:${videoId}`;
+  return `transcript:v5:${videoId}`;
 }
 
 let redisClient: Redis | null | undefined;
