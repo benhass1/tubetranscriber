@@ -153,9 +153,14 @@ def _youtube_session() -> requests.Session:
     return session
 
 
+def _worker_proxy_url() -> str:
+    """Read the current and legacy names for the Worker relay endpoint."""
+    return os.getenv("CF_WORKER_PROXY", "").strip() or os.getenv("CF_WORKER_PROXY_URL", "").strip()
+
+
 def _worker_target_url(target_url: str) -> str:
     """Wrap a YouTube URL in the configured Cloudflare Worker endpoint."""
-    worker_url = os.getenv("CF_WORKER_PROXY", "").strip()
+    worker_url = _worker_proxy_url()
     if not worker_url:
         return target_url
     if worker_url.endswith("?url="):
@@ -170,7 +175,7 @@ def _worker_target_url(target_url: str) -> str:
 
 def _youtube_request(session: requests.Session, method: str, target_url: str, **kwargs: Any) -> requests.Response:
     """Send a YouTube request directly or through the configured Worker."""
-    worker_url = os.getenv("CF_WORKER_PROXY", "").strip()
+    worker_url = _worker_proxy_url()
     if worker_url:
         headers = dict(kwargs.pop("headers", {}) or {})
         auth_token = os.getenv("CF_WORKER_AUTH_TOKEN", "").strip()

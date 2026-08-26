@@ -8,9 +8,24 @@ const ALLOWED_HOSTS = new Set([
 ]);
 
 const MAX_POST_BYTES = 2 * 1024 * 1024;
+const DESKTOP_USER_AGENTS = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+];
+const MOBILE_USER_AGENTS = [
+  "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1",
+];
 
 function isAllowedHost(hostname) {
   return ALLOWED_HOSTS.has(hostname) || hostname.endsWith(".googlevideo.com");
+}
+
+function upstreamUserAgent(request) {
+  const incoming = request.headers.get("user-agent") || "";
+  if (incoming.startsWith("com.google.android.youtube/")) return incoming;
+  const pool = Math.random() < 0.25 ? MOBILE_USER_AGENTS : DESKTOP_USER_AGENTS;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function corsHeaders() {
@@ -80,10 +95,11 @@ export default {
     }
 
     const upstreamHeaders = new Headers();
-    for (const name of ["accept", "accept-language", "content-type", "user-agent", "cookie"]) {
+    for (const name of ["accept", "accept-language", "content-type", "cookie"]) {
       const value = request.headers.get(name);
       if (value) upstreamHeaders.set(name, value);
     }
+    upstreamHeaders.set("user-agent", upstreamUserAgent(request));
     upstreamHeaders.set("referer", "https://www.youtube.com/");
     upstreamHeaders.set("origin", "https://www.youtube.com");
     upstreamHeaders.set("accept-encoding", "identity");
