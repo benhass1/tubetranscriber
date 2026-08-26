@@ -243,6 +243,72 @@ def _select_caption_track(tracks: list[dict[str, Any]]) -> dict[str, Any]:
     return ordered[0]
 
 
+def _parse_timedtext_track_list(payload: str) -> list[dict[str, Any]]:
+    """Parse the public timedtext track list without assuming a player JSON payload."""
+    text = payload.strip()
+    if not text:
+        return []
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return []
+    tracks: list[dict[str, Any]] = []
+    for node in root.iter("track"):
+        language = str(node.attrib.get("lang_code", "")).strip()
+        if not language:
+            continue
+        track: dict[str, Any] = {
+            "languageCode": language,
+            "baseUrl": "https://www.youtube.com/api/timedtext",
+        }
+        for source_key, target_key in (("kind", "kind"), ("name", "name"), ("tlang", "tlang")):
+            value = str(node.attrib.get(source_key, "")).strip()
+            if value:
+                track[target_key] = value
+        tracks.append(track)
+    return tracks
+
+
+def _fetch_timedtext_direct(video_id: str) -> list[dict[str, Any]]:
+    """Try YouTube's lightweight timedtext list endpoint before InnerTube."""
+    session = _youtube_session()
+    try:
+        list_url = f"https://www.youtube.com/api/timedtext?type=list&v={video_id}"
+        response = _youtube_request(
+            session,
+            "GET",
+            list_url,
+            headers={"Accept": "application/xml,text/xml,application/json,*/*"},
+            timeout=20,
+        )
+        if response.status_code == 429:
+            raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.")
+        response.raise_for_status()
+        tracks = _parse_timedtext_track_list(response.text)
+        if not tracks:
+            raise NoCaptionsError("No public captions are available for this video.")
+
+        token_details = _po_token_details(video_id)
+        last_error: Exception | None = None
+        for track in _ordered_caption_tracks(tracks):
+            language = str(track["languageCode"])
+            query: list[tuple[str, str]] = [("v", video_id), ("lang", language)]
+            for key in ("kind", "name", "tlang"):
+                value = str(track.get(key, "")).strip()
+                if value:
+                    query.append((key, value))
+            track["baseUrl"] = urlunsplit(("https", "www.youtube.com", "/api/timedtext", urlencode(query), ""))
+            try:
+                return _fetch_caption_track(session, track, token_details)
+            except YouTubeRateLimitError:
+                raise
+            except (requests.RequestException, CaptionPayloadError) as error:
+                last_error = error
+        raise CaptionPayloadError("YouTube returned no usable caption text.") from last_error
+    finally:
+        session.close()
+
+
 def _parse_caption_payload(payload: str) -> list[dict[str, Any]]:
     """Parse timedtext XML or json3 into the common segment shape."""
     text = payload.strip()
@@ -492,9 +558,9 @@ def _youtube_transcript_api_fetch(video_id: str) -> list[dict[str, Any]]:
 
 
 def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
-    """Prefer InnerTube JSON3/XML, then signed page extraction, then the library."""
+    """Prefer direct timedtext, then InnerTube/page extraction, then the library."""
     prior_errors: list[RuntimeError] = []
-    for fetcher in (_fetch_innertube_transcript, _fetch_direct_transcript):
+    for fetcher in (_fetch_timedtext_direct, _fetch_innertube_transcript, _fetch_direct_transcript):
         try:
             return fetcher(video_id)
         except YouTubeRateLimitError as error:

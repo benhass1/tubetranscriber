@@ -90,6 +90,35 @@ class TranscriptBridgeTests(unittest.TestCase):
             with self.assertRaises(bridge.NoCaptionsError):
                 bridge._fetch_innertube_transcript("dQw4w9WgXcQ")
 
+    def test_timedtext_track_list_parses_language_and_asr(self):
+        tracks = bridge._parse_timedtext_track_list(
+            '<transcript_list><track id="1" name="English" lang_code="en" kind="asr" /></transcript_list>'
+        )
+        self.assertEqual(tracks[0]["languageCode"], "en")
+        self.assertEqual(tracks[0]["kind"], "asr")
+        self.assertEqual(tracks[0]["name"], "English")
+
+    def test_direct_timedtext_fetch_forces_json3_after_language_discovery(self):
+        calls = []
+        responses = [
+            FakeResponse('<transcript_list><track name="English" lang_code="en" kind="asr" /></transcript_list>'),
+            FakeResponse(json.dumps({"events": [{"tStartMs": 1000, "dDurationMs": 1500, "segs": [{"utf8": "Hello" }]}]})),
+        ]
+        session = FakeSession()
+
+        def request(_session, _method, url, **_kwargs):
+            calls.append(url)
+            return responses.pop(0)
+
+        with patch.object(bridge, "_youtube_session", return_value=session), patch.object(
+            bridge, "_youtube_request", side_effect=request
+        ), patch.object(bridge, "_po_token_details", return_value=None):
+            result = bridge._fetch_timedtext_direct("dQw4w9WgXcQ")
+        self.assertEqual(result[0]["text"], "Hello")
+        self.assertIn("type=list", calls[0])
+        self.assertIn("fmt=json3", calls[1])
+        self.assertIn("kind=asr", calls[1])
+
 
 if __name__ == "__main__":
     unittest.main()
