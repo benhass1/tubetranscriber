@@ -10,9 +10,10 @@ import python_transcript as bridge
 
 
 class FakeResponse:
-    def __init__(self, text="", status_code=200, payload=None):
+    def __init__(self, text="", status_code=200, payload=None, headers=None):
         self.text = text
         self.status_code = status_code
+        self.headers = headers or {}
         self._payload = payload
 
     def raise_for_status(self):
@@ -34,6 +35,21 @@ class FakeSession:
 
 
 class TranscriptBridgeTests(unittest.TestCase):
+    def test_429_uses_bounded_exponential_backoff(self):
+        session = FakeSession()
+        responses = [
+            FakeResponse(status_code=429),
+            FakeResponse(status_code=429),
+            FakeResponse(status_code=200),
+        ]
+        with patch.dict(os.environ, {"YOUTUBE_429_RETRIES": "2"}, clear=False), patch.object(
+            session, "request", side_effect=responses
+        ) as request, patch.object(bridge.time, "sleep") as sleep, patch.object(bridge.random, "uniform", return_value=0):
+            response = bridge._youtube_request(session, "GET", "https://www.youtube.com/watch?v=abc")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(request.call_count, 3)
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [0.75, 1.5])
+
     def test_worker_target_and_auth_header(self):
         with patch.dict(
             os.environ,
@@ -89,6 +105,10 @@ class TranscriptBridgeTests(unittest.TestCase):
         ), patch.object(bridge, "_po_token_details", return_value=None):
             with self.assertRaises(bridge.NoCaptionsError):
                 bridge._fetch_innertube_transcript("dQw4w9WgXcQ")
+
+    def test_vtt_payload_is_parsed(self):
+        payload = "WEBVTT\n\n00:00:01.000 --> 00:00:03.500\nHello <i>world</i>\n"
+        self.assertEqual(bridge._parse_caption_payload(payload), [{"text": "Hello world", "start": 1.0, "duration": 2.5}])
 
     def test_timedtext_track_list_parses_language_and_asr(self):
         tracks = bridge._parse_timedtext_track_list(

@@ -5,14 +5,21 @@ from __future__ import annotations
 import html as html_lib
 import json
 import os
+import random
 import re
 import sys
+import time
 import xml.etree.ElementTree as ET
 from http.cookiejar import MozillaCookieJar
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import requests
+try:
+    import yt_dlp
+except ImportError:  # pragma: no cover - optional dependency in local test environments
+    yt_dlp = None
+
 from youtube_transcript_api import (
     NoTranscriptFound,
     TranscriptsDisabled,
@@ -40,6 +47,10 @@ class CaptionPayloadError(RuntimeError):
 
 class YouTubeRateLimitError(RuntimeError):
     """Raised when YouTube or the proxy asks the caller to slow down."""
+
+
+class YtDlpUnavailableError(RuntimeError):
+    """Raised when the optional yt-dlp fallback is not installed."""
 
 
 def extract_video_id(url_or_id: str) -> str:
@@ -135,6 +146,11 @@ def _youtube_session() -> requests.Session:
             "Accept-Language": "en-US,en;q=0.9",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Cookie": YOUTUBE_CONSENT_COOKIE,
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
         }
     )
     proxies = _proxy_mapping()
@@ -174,16 +190,35 @@ def _worker_target_url(target_url: str) -> str:
 
 
 def _youtube_request(session: requests.Session, method: str, target_url: str, **kwargs: Any) -> requests.Response:
-    """Send a YouTube request directly or through the configured Worker."""
+    """Send a YouTube request with a small, bounded 429 retry window."""
     worker_url = _worker_proxy_url()
+    headers = dict(kwargs.pop("headers", {}) or {})
     if worker_url:
-        headers = dict(kwargs.pop("headers", {}) or {})
         auth_token = os.getenv("CF_WORKER_AUTH_TOKEN", "").strip()
         if auth_token:
             headers["x-proxy-auth"] = auth_token
-        kwargs["headers"] = headers
-        return session.request(method, _worker_target_url(target_url), **kwargs)
-    return session.request(method, target_url, **kwargs)
+        request_url = _worker_target_url(target_url)
+    else:
+        request_url = target_url
+    kwargs["headers"] = headers
+
+    try:
+        max_retries = max(0, min(2, int(os.getenv("YOUTUBE_429_RETRIES", "2"))))
+    except ValueError:
+        max_retries = 2
+    for attempt in range(max_retries + 1):
+        response = session.request(method, request_url, **kwargs)
+        if response.status_code != 429 or attempt >= max_retries:
+            return response
+        retry_after = response.headers.get("Retry-After", "")
+        try:
+            server_delay = float(retry_after)
+        except ValueError:
+            server_delay = 0.0
+        exponential_delay = min(8.0, 0.75 * (2 ** attempt))
+        delay = max(exponential_delay, server_delay) + random.uniform(0, 0.35)
+        time.sleep(delay)
+    return response
 
 
 def _parse_player_response(page: str) -> dict[str, Any]:
@@ -348,6 +383,33 @@ def _parse_caption_payload(payload: str) -> list[dict[str, Any]]:
             return segments
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
+
+    # yt-dlp commonly exposes WebVTT when json3 is unavailable.
+    segments = []
+    cue_pattern = re.compile(
+        r"(?m)^(?P<start>\d{2}:\d{2}(?::\d{2})?[.,]\d{3})\s+-->\s+(?P<end>\d{2}:\d{2}(?::\d{2})?[.,]\d{3})\s*$"
+    )
+    cues = list(cue_pattern.finditer(text))
+
+    def parse_vtt_time(value: str) -> float:
+        parts = value.replace(",", ".").split(":")
+        if len(parts) == 2:
+            minutes, seconds = parts
+            return float(minutes) * 60 + float(seconds)
+        hours, minutes, seconds = parts
+        return float(hours) * 3600 + float(minutes) * 60 + float(seconds)
+
+    for index, cue in enumerate(cues):
+        body_start = cue.end()
+        body_end = cues[index + 1].start() if index + 1 < len(cues) else len(text)
+        value = re.sub(r"<[^>]+>", "", text[body_start:body_end]).strip()
+        value = html_lib.unescape(re.sub(r"\s+", " ", value))
+        if value:
+            start = parse_vtt_time(cue.group("start"))
+            end = parse_vtt_time(cue.group("end"))
+            segments.append({"text": value, "start": start, "duration": max(0, end - start)})
+    if segments:
+        return segments
 
     raise CaptionPayloadError("YouTube returned an empty or corrupted transcript response.")
 
@@ -518,6 +580,80 @@ def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
         raise CaptionPayloadError("YouTube returned no usable caption text.") from last_error
 
 
+def _fetch_ytdlp_transcript(video_id: str) -> list[dict[str, Any]]:
+    """Use yt-dlp's maintained YouTube extractor as an optional final fallback."""
+    if yt_dlp is None:
+        raise YtDlpUnavailableError("yt-dlp is not installed.")
+
+    options: dict[str, Any] = {
+        "skip_download": True,
+        "writesubtitles": True,
+        "writeautomaticsub": True,
+        "subtitleslangs": ["en", "en-US", "en-GB"],
+        "quiet": True,
+        "no_warnings": True,
+        "ignoreconfig": True,
+        "http_headers": {
+            "User-Agent": YOUTUBE_USER_AGENT,
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+    }
+    warp_proxy = os.getenv("WARP_HTTP_PROXY", "").strip()
+    if warp_proxy:
+        options["proxy"] = warp_proxy
+
+    try:
+        with yt_dlp.YoutubeDL(options) as ydl:
+            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+    except Exception as error:
+        message = str(error)
+        lowered = message.lower()
+        if any(token in lowered for token in ("429", "too many requests", "sign in to confirm", "not a bot", "rate limit")):
+            raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.") from error
+        raise RuntimeError("yt-dlp could not retrieve YouTube caption metadata.") from error
+
+    manual = info.get("subtitles") or {}
+    automatic = info.get("automatic_captions") or {}
+    tracks: list[tuple[str, bool, list[dict[str, Any]]]] = []
+    for language, formats in manual.items():
+        if isinstance(formats, list):
+            tracks.append((str(language), False, [item for item in formats if isinstance(item, dict)]))
+    for language, formats in automatic.items():
+        if isinstance(formats, list):
+            tracks.append((str(language), True, [item for item in formats if isinstance(item, dict)]))
+    if not tracks:
+        raise NoCaptionsError("No public captions are available for this video.")
+
+    def rank(item: tuple[str, bool, list[dict[str, Any]]]) -> tuple[int, int]:
+        language, is_asr, _formats = item
+        normalized = language.lower()
+        english = normalized in {"en", "en-us", "en-gb"} or normalized.startswith("en-")
+        return (0 if english and not is_asr else 1 if english else 2 if is_asr else 3, 0)
+
+    session = _youtube_session()
+    try:
+        for _language, _is_asr, formats in sorted(tracks, key=rank):
+            ordered_formats = sorted(
+                (item for item in formats if str(item.get("url", "")).strip()),
+                key=lambda item: {"json3": 0, "vtt": 1, "srv3": 2, "xml": 3}.get(str(item.get("ext", "")).lower(), 4),
+            )
+            for subtitle_format in ordered_formats:
+                subtitle_url = str(subtitle_format["url"])
+                response = _youtube_request(session, "GET", subtitle_url, timeout=20)
+                if response.status_code == 429:
+                    raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.")
+                if not response.ok:
+                    continue
+                try:
+                    return _parse_caption_payload(response.text)
+                except CaptionPayloadError:
+                    continue
+    finally:
+        session.close()
+    raise CaptionPayloadError("YouTube returned no usable caption text.")
+
+
 def _youtube_transcript_api_fetch(video_id: str) -> list[dict[str, Any]]:
     """Fetch tracks through youtube-transcript-api as a compatibility fallback."""
     kwargs: dict[str, Any] = {}
@@ -560,7 +696,7 @@ def _youtube_transcript_api_fetch(video_id: str) -> list[dict[str, Any]]:
 def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
     """Prefer direct timedtext, then InnerTube/page extraction, then the library."""
     prior_errors: list[RuntimeError] = []
-    for fetcher in (_fetch_timedtext_direct, _fetch_innertube_transcript, _fetch_direct_transcript):
+    for fetcher in (_fetch_timedtext_direct, _fetch_innertube_transcript, _fetch_direct_transcript, _fetch_ytdlp_transcript):
         try:
             return fetcher(video_id)
         except YouTubeRateLimitError as error:

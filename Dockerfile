@@ -10,7 +10,7 @@ COPY --from=warproxy /usr/local/bin/wgcf /usr/local/bin/wgcf
 COPY --from=warproxy /usr/local/bin/wireproxy /usr/local/bin/wireproxy
 COPY --from=warproxy /usr/local/bin/healthcheck /usr/local/bin/warproxy-healthcheck
 RUN chmod +x /usr/local/bin/wgcf /usr/local/bin/wireproxy /usr/local/bin/warproxy-healthcheck \
-    && python3 -m pip install --no-cache-dir --break-system-packages "youtube-transcript-api>=0.6,<1.0"
+    && python3 -m pip install --no-cache-dir --break-system-packages "youtube-transcript-api>=0.6,<1.0" "yt-dlp>=2025.05.22"
 
 WORKDIR /app
 COPY . .
