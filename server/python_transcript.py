@@ -479,8 +479,8 @@ def _parse_timedtext_track_list(payload: str) -> list[dict[str, Any]]:
     return tracks
 
 
-def _fetch_timedtext_direct(video_id: str) -> list[dict[str, Any]]:
-    """Try YouTube's lightweight timedtext list endpoint before InnerTube."""
+def _fetch_timedtext_direct_result(video_id: str, language_code: str | None = None) -> TranscriptResult:
+    """Fetch timedtext captions and retain the source language catalog."""
     session = _youtube_session()
     try:
         list_url = f"https://www.youtube.com/api/timedtext?type=list&v={video_id}"
@@ -498,9 +498,7 @@ def _fetch_timedtext_direct(video_id: str) -> list[dict[str, Any]]:
         if not tracks:
             raise NoCaptionsError("No public captions are available for this video.")
 
-        token_details = _po_token_details(video_id)
-        last_error: Exception | None = None
-        for track in _ordered_caption_tracks(tracks):
+        for track in tracks:
             language = str(track["languageCode"])
             query: list[tuple[str, str]] = [("v", video_id), ("lang", language)]
             for key in ("kind", "name", "tlang"):
@@ -508,15 +506,17 @@ def _fetch_timedtext_direct(video_id: str) -> list[dict[str, Any]]:
                 if value:
                     query.append((key, value))
             track["baseUrl"] = urlunsplit(("https", "www.youtube.com", "/api/timedtext", urlencode(query), ""))
-            try:
-                return _fetch_caption_track(session, track, token_details)
-            except YouTubeRateLimitError:
-                raise
-            except (requests.RequestException, CaptionPayloadError) as error:
-                last_error = error
-        raise CaptionPayloadError("YouTube returned no usable caption text.") from last_error
+
+        original_track, selected_track = _select_language_track(tracks, language_code)
+        segments = _fetch_caption_track(session, selected_track, _po_token_details(video_id))
+        return _result(segments, tracks, original_track, selected_track, [])
     finally:
         session.close()
+
+
+def _fetch_timedtext_direct(video_id: str) -> list[dict[str, Any]]:
+    """Try YouTube's lightweight timedtext list endpoint before InnerTube."""
+    return _fetch_timedtext_direct_result(video_id)["segments"]
 
 
 def _parse_caption_payload(payload: str) -> list[dict[str, Any]]:
@@ -946,16 +946,21 @@ def _youtube_transcript_api_fetch(video_id: str) -> list[dict[str, Any]]:
 
 def _fetch_transcript_in_language(video_id: str, language_code: str | None = None) -> TranscriptResult:
     """Fetch the original caption track or a YouTube-supported translation."""
-    tracks, translations = _discover_caption_catalog(video_id)
-    original_track, selected_track = _select_language_track(tracks, language_code)
-    if selected_track is not original_track and not str(selected_track.get("baseUrl", "")).strip():
-        selected_track = _with_translation(original_track, language_code)
-    session = _youtube_session()
     try:
-        segments = _fetch_caption_track(session, selected_track, _po_token_details(video_id))
-    finally:
-        session.close()
-    return _result(segments, tracks, original_track, selected_track, translations)
+        return _fetch_timedtext_direct_result(video_id, language_code)
+    except RuntimeError:
+        # The direct list is the fastest path. If it is blocked, use the
+        # InnerTube catalog before handing control to the legacy stack.
+        tracks, translations = _discover_caption_catalog(video_id)
+        original_track, selected_track = _select_language_track(tracks, language_code)
+        if selected_track is not original_track and not str(selected_track.get("baseUrl", "")).strip():
+            selected_track = _with_translation(original_track, language_code)
+        session = _youtube_session()
+        try:
+            segments = _fetch_caption_track(session, selected_track, _po_token_details(video_id))
+        finally:
+            session.close()
+        return _result(segments, tracks, original_track, selected_track, translations)
 
 
 def _fetch_transcript_result(video_id: str, language_code: str | None = None) -> TranscriptResult:
