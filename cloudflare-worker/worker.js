@@ -23,7 +23,7 @@ function corsHeaders() {
 
 function responseHeaders(upstream) {
   const headers = new Headers(corsHeaders());
-  for (const name of ["content-type", "content-encoding", "content-language", "retry-after"]) {
+  for (const name of ["content-type", "content-language", "retry-after"]) {
     const value = upstream.headers.get(name);
     if (value) headers.set(name, value);
   }
