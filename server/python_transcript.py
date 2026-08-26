@@ -755,6 +755,99 @@ def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
         raise CaptionPayloadError("YouTube returned no usable caption text.") from last_error
 
 
+def _fetch_ytdlp_transcript_result(video_id: str, language_code: str | None = None) -> TranscriptResult:
+    """Use yt-dlp metadata while preserving source and available caption languages."""
+    if yt_dlp is None:
+        raise YtDlpUnavailableError("yt-dlp is not installed.")
+    options: dict[str, Any] = {
+        "skip_download": True,
+        "writesubtitles": True,
+        "writeautomaticsub": True,
+        "subtitleslangs": ["all"],
+        "quiet": True,
+        "no_warnings": True,
+        "ignoreconfig": True,
+        "http_headers": {
+            "User-Agent": YOUTUBE_USER_AGENT,
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+    }
+    warp_proxy = os.getenv("WARP_HTTP_PROXY", "").strip()
+    if warp_proxy:
+        options["proxy"] = warp_proxy
+    try:
+        with yt_dlp.YoutubeDL(options) as ydl:
+            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+    except Exception as error:
+        message = str(error).lower()
+        if any(token in message for token in ("429", "too many requests", "sign in to confirm", "not a bot", "rate limit")):
+            raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.") from error
+        raise RuntimeError("yt-dlp could not retrieve YouTube caption metadata.") from error
+
+    manual = info.get("subtitles") or {}
+    automatic = info.get("automatic_captions") or {}
+    catalog: list[tuple[str, bool, list[dict[str, Any]]]] = []
+    for language, formats in manual.items():
+        if isinstance(formats, list):
+            catalog.append((str(language), False, [item for item in formats if isinstance(item, dict)]))
+    for language, formats in automatic.items():
+        if isinstance(formats, list):
+            catalog.append((str(language), True, [item for item in formats if isinstance(item, dict)]))
+    catalog = [item for item in catalog if any(str(fmt.get("url", "")).strip() for fmt in item[2])]
+    if not catalog:
+        raise NoCaptionsError("No public captions are available for this video.")
+
+    original_language, original_asr, original_formats = catalog[0]
+    target = str(language_code or "").strip().lower()
+    selected_language = original_language
+    selected_asr = original_asr
+    selected_formats = original_formats
+    exact = next((item for item in catalog if item[0].lower() == target), None) if target else None
+    if exact:
+        selected_language, selected_asr, selected_formats = exact
+    elif target and target != original_language.lower():
+        selected_language = target
+        translated_formats: list[dict[str, Any]] = []
+        for fmt in original_formats:
+            source_url = str(fmt.get("url", "")).strip()
+            if not source_url:
+                continue
+            parts = urlsplit(source_url)
+            query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if key != "tlang"]
+            query.append(("tlang", target))
+            translated_formats.append({**fmt, "url": urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))})
+        selected_formats = translated_formats
+    if not selected_formats:
+        raise CaptionPayloadError("YouTube returned no usable caption text.")
+
+    available_tracks = [
+        {"languageCode": language, "name": language, "kind": "asr" if is_asr else "", "baseUrl": str(formats[0].get("url", ""))}
+        for language, is_asr, formats in catalog
+    ]
+    original_track = available_tracks[0]
+    selected_track = {"languageCode": selected_language, "name": selected_language, "kind": "asr" if selected_asr else "", "baseUrl": str(selected_formats[0].get("url", ""))}
+    session = _youtube_session()
+    try:
+        last_error: Exception | None = None
+        ordered_formats = sorted(selected_formats, key=lambda item: {"json3": 0, "vtt": 1, "srv3": 2, "xml": 3}.get(str(item.get("ext", "")).lower(), 4))
+        for subtitle_format in ordered_formats:
+            try:
+                response = _youtube_request(session, "GET", str(subtitle_format["url"]), timeout=20)
+                if response.status_code == 429:
+                    raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.")
+                if response.ok:
+                    segments = _parse_caption_payload(response.text)
+                    return _result(segments, available_tracks, original_track, selected_track, [])
+            except YouTubeRateLimitError:
+                raise
+            except (requests.RequestException, CaptionPayloadError) as error:
+                last_error = error
+        raise CaptionPayloadError("YouTube returned no usable caption text.") from last_error
+    finally:
+        session.close()
+
+
 def _fetch_ytdlp_transcript(video_id: str) -> list[dict[str, Any]]:
     """Use yt-dlp's maintained YouTube extractor as an optional final fallback."""
     if yt_dlp is None:
@@ -973,10 +1066,12 @@ def _fetch_transcript_result(video_id: str, language_code: str | None = None) ->
         try:
             return _youtube_transcript_api_fetch_result(video_id, language_code)
         except Exception:
+            pass
+        try:
+            return _fetch_ytdlp_transcript_result(video_id, language_code)
+        except Exception:
             if language_code:
-                normalized = str(language_code).strip().lower()
-                if not (normalized == "en" or normalized.startswith("en-")):
-                    raise catalog_error
+                raise catalog_error
         segments = _fetch_transcript(video_id)
         selected = {"languageCode": "en", "name": "English"}
         return _result(segments, [], selected, selected, [])
