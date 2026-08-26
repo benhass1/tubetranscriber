@@ -1,0 +1,95 @@
+import json
+import os
+import sys
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import python_transcript as bridge
+
+
+class FakeResponse:
+    def __init__(self, text="", status_code=200, payload=None):
+        self.text = text
+        self.status_code = status_code
+        self._payload = payload
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise bridge.requests.HTTPError(f"status {self.status_code}")
+
+    def json(self):
+        if self._payload is not None:
+            return self._payload
+        return json.loads(self.text)
+
+
+class FakeSession:
+    def request(self, *_args, **_kwargs):
+        return FakeResponse()
+
+    def close(self):
+        pass
+
+
+class TranscriptBridgeTests(unittest.TestCase):
+    def test_worker_target_and_auth_header(self):
+        with patch.dict(
+            os.environ,
+            {
+                "CF_WORKER_PROXY": "https://worker.example/proxy",
+                "CF_WORKER_AUTH_TOKEN": "test-token",
+            },
+            clear=False,
+        ):
+            self.assertIn("url=https%3A%2F%2Fwww.youtube.com%2Fwatch", bridge._worker_target_url("https://www.youtube.com/watch?v=abc"))
+            session = FakeSession()
+            with patch.object(session, "request", return_value=FakeResponse()) as request:
+                bridge._youtube_request(session, "GET", "https://www.youtube.com/watch?v=abc")
+            self.assertEqual(request.call_args.kwargs["headers"]["x-proxy-auth"], "test-token")
+
+    def test_track_selection_prefers_manual_english_then_english_asr_then_first(self):
+        tracks = [
+            {"languageCode": "fr", "baseUrl": "https://example/fr"},
+            {"languageCode": "en", "kind": "asr", "baseUrl": "https://example/en-asr"},
+            {"languageCode": "en", "baseUrl": "https://example/en"},
+        ]
+        self.assertEqual(bridge._select_caption_track(tracks)["baseUrl"], "https://example/en")
+        self.assertEqual(bridge._select_caption_track([tracks[0]])["baseUrl"], "https://example/fr")
+        with self.assertRaises(bridge.NoCaptionsError):
+            bridge._select_caption_track([])
+
+    def test_json3_payload_is_parsed(self):
+        payload = json.dumps({"events": [{"tStartMs": 1250, "dDurationMs": 2000, "segs": [{"utf8": "Hello"}]}]})
+        self.assertEqual(bridge._parse_caption_payload(payload), [{"text": "Hello", "start": 1.25, "duration": 2.0}])
+
+    def test_empty_json3_falls_back_to_xml_and_forces_json3_first(self):
+        calls = []
+        session = FakeSession()
+        track = {"languageCode": "en", "baseUrl": "https://www.youtube.com/api/timedtext?v=abc&lang=en"}
+
+        def request(_session, _method, url, **_kwargs):
+            calls.append(url)
+            if "fmt=json3" in url:
+                return FakeResponse("{\"events\":[]}")
+            return FakeResponse('<transcript><text start="1.5" dur="2">Hello &amp; world</text></transcript>')
+
+        with patch.object(bridge, "_youtube_request", side_effect=request):
+            result = bridge._fetch_caption_track(session, track, None)
+        self.assertEqual(result[0]["text"], "Hello & world")
+        self.assertIn("fmt=json3", calls[0])
+        self.assertNotIn("fmt=", calls[1])
+
+    def test_innertube_missing_tracks_is_typed(self):
+        session = FakeSession()
+        player = {"playabilityStatus": {"status": "OK"}, "captions": {}}
+        with patch.object(bridge, "_youtube_session", return_value=session), patch.object(
+            bridge, "_youtube_request", return_value=FakeResponse(payload=player)
+        ), patch.object(bridge, "_po_token_details", return_value=None):
+            with self.assertRaises(bridge.NoCaptionsError):
+                bridge._fetch_innertube_transcript("dQw4w9WgXcQ")
+
+
+if __name__ == "__main__":
+    unittest.main()

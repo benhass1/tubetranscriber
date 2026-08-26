@@ -109,8 +109,11 @@ export async function extractTranscript(url: string) {
       if (error.kind === "video_unavailable") {
         throw new TRPCError({ code: "NOT_FOUND", message: error.message });
       }
-      if (error.kind === "transcripts_disabled" || error.kind === "no_transcript") {
-        throw new TRPCError({ code: "NOT_FOUND", message: error.message });
+      if (error.kind === "transcripts_disabled" || error.kind === "no_transcript" || error.kind === "no_captions") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "No public captions are available for this video." });
+      }
+      if (error.kind === "rate_limited") {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "YouTube is temporarily limiting transcript requests. Please wait a moment and try again." });
       }
       throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
     }

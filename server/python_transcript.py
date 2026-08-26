@@ -30,6 +30,18 @@ YOUTUBE_USER_AGENT = (
 YOUTUBE_CONSENT_COOKIE = "SOCS=CAESEwgDEgk2MTExNDM3NDIaAmVuIAEaBgiA_L2yBg;"
 
 
+class NoCaptionsError(RuntimeError):
+    """Raised when YouTube exposes no usable caption tracks."""
+
+
+class CaptionPayloadError(RuntimeError):
+    """Raised when a caption track exists but its payload is unusable."""
+
+
+class YouTubeRateLimitError(RuntimeError):
+    """Raised when YouTube or the proxy asks the caller to slow down."""
+
+
 def extract_video_id(url_or_id: str) -> str:
     """Extract an 11-character YouTube video ID from a URL or raw ID."""
     value = url_or_id.strip()
@@ -102,6 +114,15 @@ def _caption_url_with_po_token(caption_url: str, token_details: dict[str, str] |
             "cver": "2.20240301.00.00",
         }
     )
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+def _caption_url_with_format(caption_url: str, format_name: str | None) -> str:
+    """Set or remove timedtext fmt while preserving the signed query parameters."""
+    parts = urlsplit(caption_url)
+    query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if key != "fmt"]
+    if format_name:
+        query.append(("fmt", format_name))
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
@@ -188,19 +209,40 @@ def _caption_tracks(player_data: dict[str, Any]) -> list[dict[str, Any]]:
     return [track for track in tracks if isinstance(track, dict)]
 
 
-def _select_caption_track(tracks: list[dict[str, Any]]) -> dict[str, Any]:
-    for track in tracks:
+def _ordered_caption_tracks(tracks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Prefer English, then ASR, then any remaining usable caption track."""
+    usable = [track for track in tracks if str(track.get("baseUrl", "")).strip()]
+
+    def rank(track: dict[str, Any]) -> tuple[int, int]:
         language = str(track.get("languageCode", "")).lower()
-        if language in {"en", "en-us", "en-gb"}:
-            return track
-    return tracks[0]
+        is_english = language in {"en", "en-us", "en-gb"} or language.startswith("en-")
+        is_asr = str(track.get("kind", "")).lower() == "asr"
+        if is_english and not is_asr:
+            return (0, 0)
+        if is_english:
+            return (1, 0)
+        if is_asr:
+            return (2, 0)
+        return (3, 0)
+
+    return [
+        track
+        for _, track in sorted(enumerate(usable), key=lambda item: (rank(item[1]), item[0]))
+    ]
+
+
+def _select_caption_track(tracks: list[dict[str, Any]]) -> dict[str, Any]:
+    ordered = _ordered_caption_tracks(tracks)
+    if not ordered:
+        raise NoCaptionsError("No public captions are available for this video.")
+    return ordered[0]
 
 
 def _parse_caption_payload(payload: str) -> list[dict[str, Any]]:
     """Parse timedtext XML or json3 into the common segment shape."""
     text = payload.strip()
     if not text:
-        raise RuntimeError("YouTube returned an empty caption payload.")
+        raise CaptionPayloadError("YouTube returned an empty caption payload.")
 
     try:
         root = ET.fromstring(text)
@@ -236,74 +278,152 @@ def _parse_caption_payload(payload: str) -> list[dict[str, Any]]:
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
 
-    raise RuntimeError("YouTube returned an empty or corrupted transcript response.")
+    raise CaptionPayloadError("YouTube returned an empty or corrupted transcript response.")
 
 
-def _fetch_innertube_transcript(video_id: str) -> list[dict[str, Any]]:
-    """Fetch captionTracks from youtubei/v1/player and download JSON3."""
-    innertube_url = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
-    token_details = _po_token_details(video_id)
-    client = {
+def _fetch_caption_track(
+    session: requests.Session,
+    track: dict[str, Any],
+    token_details: dict[str, str] | None,
+) -> list[dict[str, Any]]:
+    """Fetch one track as JSON3 first and as raw XML when JSON3 is unusable."""
+    base_url = str(track.get("baseUrl", "")).strip()
+    if not base_url:
+        raise CaptionPayloadError("Caption track found but lacks a valid download URL.")
+
+    signed_url = _caption_url_with_po_token(base_url, token_details)
+    json3_url = _caption_url_with_format(signed_url, "json3")
+    json3_error: Exception | None = None
+    try:
+        response = _youtube_request(session, "GET", json3_url, timeout=20)
+        if response.status_code == 429:
+            raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.")
+        response.raise_for_status()
+        return _parse_caption_payload(response.text)
+    except YouTubeRateLimitError:
+        raise
+    except (requests.RequestException, CaptionPayloadError) as error:
+        json3_error = error
+
+    # Some signed timedtext URLs ignore fmt=json3 or return an empty body. The
+    # same URL without fmt asks YouTube for the classic XML transcript format.
+    xml_url = _caption_url_with_format(signed_url, None)
+    try:
+        response = _youtube_request(session, "GET", xml_url, timeout=20)
+        if response.status_code == 429:
+            raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.")
+        response.raise_for_status()
+        return _parse_caption_payload(response.text)
+    except YouTubeRateLimitError:
+        raise
+    except (requests.RequestException, CaptionPayloadError) as error:
+        raise CaptionPayloadError("YouTube returned no usable caption text.") from (json3_error or error)
+
+
+def _innertube_client_configs(token_details: dict[str, str] | None) -> list[dict[str, Any]]:
+    """Return stable WEB and Android player contexts for compatibility fallback."""
+    web_client: dict[str, Any] = {
         "hl": "en",
         "gl": "US",
         "clientName": "WEB",
         "clientVersion": "2.20240301.00.00",
     }
     if token_details:
-        client.update(
+        web_client.update(
             {
                 "visitorData": token_details["visitorData"],
                 "poToken": token_details["poToken"],
             }
         )
-    payload = {
-        "context": {"client": client},
-        "videoId": video_id,
-    }
+    return [
+        {"client": web_client, "headers": {}},
+        {
+            "client": {
+                "hl": "en",
+                "gl": "US",
+                "clientName": "ANDROID",
+                "clientVersion": "19.09.37",
+                "androidSdkVersion": 30,
+            },
+            "headers": {
+                "User-Agent": "com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip",
+                "Accept": "application/json",
+            },
+        },
+    ]
+
+
+def _fetch_innertube_transcript(video_id: str) -> list[dict[str, Any]]:
+    """Fetch player captionTracks using WEB then Android and parse each track."""
+    innertube_url = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
+    token_details = _po_token_details(video_id)
     session = _youtube_session()
+    saw_successful_player = False
+    saw_no_tracks = False
+    last_error: Exception | None = None
     try:
-        response = _youtube_request(session, "POST", innertube_url, json=payload, timeout=20)
-        response.raise_for_status()
-        player_data = response.json()
-    except (requests.RequestException, ValueError) as error:
-        session.close()
-        raise RuntimeError(f"InnerTube request failed: {error}") from error
+        for config in _innertube_client_configs(token_details):
+            payload = {
+                "context": {"client": config["client"]},
+                "videoId": video_id,
+            }
+            try:
+                response = _youtube_request(
+                    session,
+                    "POST",
+                    innertube_url,
+                    headers=config["headers"],
+                    json=payload,
+                    timeout=20,
+                )
+                if response.status_code == 429:
+                    raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.")
+                response.raise_for_status()
+                player_data = response.json()
+                saw_successful_player = True
+            except YouTubeRateLimitError:
+                raise
+            except (requests.RequestException, ValueError) as error:
+                last_error = error
+                continue
 
-    playability = player_data.get("playabilityStatus", {}).get("status")
-    if playability in {"UNPLAYABLE", "LOGIN_REQUIRED"}:
-        session.close()
-        raise RuntimeError("The requested video is unavailable or private.")
+            playability = player_data.get("playabilityStatus", {}).get("status")
+            if playability in {"UNPLAYABLE", "LOGIN_REQUIRED"}:
+                raise RuntimeError("The requested video is unavailable or private.")
 
-    tracks = _caption_tracks(player_data)
-    if not tracks:
-        session.close()
-        raise RuntimeError("No caption tracks found via InnerTube API.")
+            tracks = _caption_tracks(player_data)
+            if not tracks:
+                saw_no_tracks = True
+                continue
+            for track in _ordered_caption_tracks(tracks):
+                try:
+                    return _fetch_caption_track(session, track, token_details)
+                except YouTubeRateLimitError:
+                    raise
+                except (requests.RequestException, CaptionPayloadError) as error:
+                    last_error = error
+                    continue
 
-    caption_url = _select_caption_track(tracks).get("baseUrl")
-    if not caption_url:
-        session.close()
-        raise RuntimeError("Caption track found but lacks a valid download URL.")
-    if "fmt=" not in caption_url:
-        caption_url += "&fmt=json3" if "?" in caption_url else "?fmt=json3"
-    caption_url = _caption_url_with_po_token(caption_url, token_details)
-
-    try:
-        caption_response = _youtube_request(session, "GET", caption_url, timeout=20)
-        caption_response.raise_for_status()
-        return _parse_caption_payload(caption_response.text)
-    except requests.RequestException as error:
-        raise RuntimeError(f"Failed to fetch the JSON3 caption track: {error}") from error
+        if saw_no_tracks and saw_successful_player:
+            raise NoCaptionsError("No public captions are available for this video.")
+        if last_error:
+            raise CaptionPayloadError("YouTube returned no usable caption text.") from last_error
+        raise RuntimeError("InnerTube did not return usable player data.")
     finally:
         session.close()
 
 
 def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
-    """Fetch a signed caption track URL from YouTube's player response."""
+    """Fetch signed caption tracks from the watch page with JSON3/XML fallback."""
     watch_url = f"https://www.youtube.com/watch?v={video_id}"
     with _youtube_session() as session:
         try:
             response = _youtube_request(session, "GET", watch_url, timeout=20)
+            if response.status_code == 429:
+                raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.")
             response.raise_for_status()
+        except YouTubeRateLimitError:
+            raise
         except requests.RequestException as error:
             raise RuntimeError(f"Failed to reach YouTube page: {error}") from error
 
@@ -314,19 +434,17 @@ def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
 
         tracks = _caption_tracks(player_data)
         if not tracks:
-            raise RuntimeError("Subtitles/Transcripts are disabled or unavailable for this video.")
+            raise NoCaptionsError("No public captions are available for this video.")
         token_details = _po_token_details(video_id)
-        caption_url = _select_caption_track(tracks).get("baseUrl")
-        if not caption_url:
-            raise RuntimeError("Caption track found but lacks a valid download URL.")
-
-        caption_url = _caption_url_with_po_token(caption_url, token_details)
-        try:
-            caption_response = _youtube_request(session, "GET", caption_url, timeout=20)
-            caption_response.raise_for_status()
-        except requests.RequestException as error:
-            raise RuntimeError(f"Failed to fetch the signed caption track: {error}") from error
-        return _parse_caption_payload(caption_response.text)
+        last_error: Exception | None = None
+        for track in _ordered_caption_tracks(tracks):
+            try:
+                return _fetch_caption_track(session, track, token_details)
+            except YouTubeRateLimitError:
+                raise
+            except (requests.RequestException, CaptionPayloadError) as error:
+                last_error = error
+        raise CaptionPayloadError("YouTube returned no usable caption text.") from last_error
 
 
 def _youtube_transcript_api_fetch(video_id: str) -> list[dict[str, Any]]:
@@ -369,40 +487,52 @@ def _youtube_transcript_api_fetch(video_id: str) -> list[dict[str, Any]]:
 
 
 def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
-    """Prefer InnerTube JSON3, then signed page extraction, then the library."""
+    """Prefer InnerTube JSON3/XML, then signed page extraction, then the library."""
     prior_errors: list[RuntimeError] = []
     for fetcher in (_fetch_innertube_transcript, _fetch_direct_transcript):
         try:
             return fetcher(video_id)
+        except YouTubeRateLimitError:
+            raise
         except RuntimeError as error:
             prior_errors.append(error)
 
     try:
         return _youtube_transcript_api_fetch(video_id)
     except TranscriptsDisabled as error:
-        raise RuntimeError("Subtitles/Transcripts are disabled for this video.") from error
+        raise NoCaptionsError("No public captions are available for this video.") from error
     except NoTranscriptFound as error:
-        raise RuntimeError("No transcript found in any language for this video.") from error
+        raise NoCaptionsError("No public captions are available for this video.") from error
     except VideoUnavailable as error:
         raise RuntimeError("The requested video is unavailable or private.") from error
     except RuntimeError as error:
         message = str(error)
         lowered = message.lower()
         prior_messages = " ".join(str(item).lower() for item in prior_errors)
+        if any(token in lowered or token in prior_messages for token in ("429", "too many requests", "rate limit", "ratelimit")):
+            raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.") from error
         if "unavailable or private" in prior_messages or "unavailable or private" in lowered:
             raise RuntimeError("The requested video is unavailable or private.") from error
-        if "no caption tracks" in prior_messages or "disabled or unavailable" in prior_messages:
-            raise RuntimeError("Subtitles/Transcripts are disabled for this video.") from error
+        if any(isinstance(item, NoCaptionsError) for item in prior_errors) and not any(
+            isinstance(item, CaptionPayloadError) for item in prior_errors
+        ):
+            raise NoCaptionsError("No public captions are available for this video.") from error
         if "no element found" in lowered or "empty" in lowered or "xml" in lowered:
-            raise RuntimeError(
+            raise CaptionPayloadError(
                 "YouTube returned an empty or corrupted transcript response. Please retry in a few moments."
             ) from error
         raise
     except Exception as error:
         error_message = str(error)
         lowered = error_message.lower()
+        if any(token in lowered for token in ("429", "too many requests", "rate limit", "ratelimit")):
+            raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.") from error
+        if any(isinstance(item, NoCaptionsError) for item in prior_errors) and not any(
+            isinstance(item, CaptionPayloadError) for item in prior_errors
+        ):
+            raise NoCaptionsError("No public captions are available for this video.") from error
         if "no element found" in lowered or "empty" in lowered or "xml" in lowered:
-            raise RuntimeError(
+            raise CaptionPayloadError(
                 "YouTube returned an empty or corrupted transcript response. Please retry in a few moments."
             ) from error
         raise RuntimeError(f"Transcript extraction failed: {error_message}") from error
@@ -441,11 +571,17 @@ def main() -> None:
     except ValueError as error:
         print(json.dumps({"kind": "invalid_url", "message": str(error)}))
         raise SystemExit(2)
+    except NoCaptionsError as error:
+        print(json.dumps({"kind": "no_captions", "message": str(error)}))
+        raise SystemExit(2)
+    except YouTubeRateLimitError as error:
+        print(json.dumps({"kind": "rate_limited", "message": str(error)}))
+        raise SystemExit(2)
     except RuntimeError as error:
         message = str(error)
         if message.startswith("Subtitles/Transcripts"):
             kind = "transcripts_disabled"
-        elif message.startswith("No transcript"):
+        elif message.startswith("No transcript") or message.startswith("No public captions"):
             kind = "no_transcript"
         elif message.startswith("The requested video"):
             kind = "video_unavailable"
