@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "TubeTranscriber Browser Capture",
+  "version": "0.1.0",
+  "description": "Capture les captions visibles dans un onglet YouTube et les envoie au cache TubeTranscriber.",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://tubetranscriber.com/*"
+  ],
+  "action": {
+    "default_title": "Capture YouTube transcript",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
