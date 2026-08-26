@@ -829,6 +829,82 @@ def _fetch_ytdlp_transcript(video_id: str) -> list[dict[str, Any]]:
     raise CaptionPayloadError("YouTube returned no usable caption text.")
 
 
+def _normalize_library_segments(fetched: Any) -> list[dict[str, Any]]:
+    if not fetched:
+        raise RuntimeError("YouTube returned an empty transcript response.")
+    normalized: list[dict[str, Any]] = []
+    for item in fetched:
+        if isinstance(item, dict):
+            text = item.get("text", "")
+            start = item.get("start", 0)
+            duration = item.get("duration", 0)
+        else:
+            text = getattr(item, "text", "")
+            start = getattr(item, "start", 0)
+            duration = getattr(item, "duration", 0)
+        normalized.append({
+            "text": str(text).strip(),
+            "start": float(start or 0),
+            "duration": float(duration or 0),
+        })
+    return [item for item in normalized if item["text"]]
+
+
+def _youtube_transcript_api_fetch_result(video_id: str, language_code: str | None = None) -> TranscriptResult:
+    """Use youtube-transcript-api as a language-aware compatibility fallback."""
+    kwargs: dict[str, Any] = {}
+    proxies = _proxy_mapping()
+    if proxies:
+        kwargs["proxies"] = proxies
+    cookie_file = _youtube_cookie_file()
+    if cookie_file:
+        kwargs["cookies"] = cookie_file
+
+    transcript_list = YouTubeTranscriptApi.list_transcripts(video_id, **kwargs)
+    tracks = list(transcript_list)
+    if not tracks:
+        raise RuntimeError("No transcript found in any language for this video.")
+    original = tracks[0]
+    target = str(language_code or "").strip().lower()
+    selected = original
+    if target:
+        selected = next((track for track in tracks if str(getattr(track, "language_code", "")).lower() == target), None)
+        if selected is None and bool(getattr(original, "is_translatable", False)):
+            selected = original.translate(target)
+    fetched = selected.fetch()
+    segments = _normalize_library_segments(fetched)
+    original_code = str(getattr(original, "language_code", "")).strip()
+    selected_code = str(getattr(selected, "language_code", "") or target or original_code).strip()
+    available: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, track in enumerate(tracks):
+        code = str(getattr(track, "language_code", "")).strip()
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        available.append(_language_info(
+            code,
+            getattr(track, "language", None),
+            original=index == 0,
+            asr=bool(getattr(track, "is_generated", False)),
+        ))
+        for translation in getattr(track, "translation_languages", []) or []:
+            if not isinstance(translation, dict):
+                continue
+            translation_code = str(translation.get("languageCode", "")).strip()
+            if translation_code and translation_code not in seen:
+                seen.add(translation_code)
+                available.append(_language_info(translation_code, translation.get("languageName")))
+    selected_language = next((item for item in available if item["code"] == selected_code), _language_info(selected_code, getattr(selected, "language", None), original=selected_code == original_code))
+    original_language = next((item for item in available if item["code"] == original_code), _language_info(original_code, getattr(original, "language", None), original=True))
+    return {
+        "segments": segments,
+        "originalLanguage": original_language,
+        "selectedLanguage": selected_language,
+        "availableLanguages": available,
+    }
+
+
 def _youtube_transcript_api_fetch(video_id: str) -> list[dict[str, Any]]:
     """Fetch tracks through youtube-transcript-api as a compatibility fallback."""
     kwargs: dict[str, Any] = {}
@@ -886,13 +962,14 @@ def _fetch_transcript_result(video_id: str, language_code: str | None = None) ->
     """Use the language-aware catalog first, retaining the complete legacy fallback stack."""
     try:
         return _fetch_transcript_in_language(video_id, language_code)
-    except RuntimeError:
-        # If the catalog request is blocked or malformed, retain the production
-        # extraction order and return a minimal compatible result. A requested
-        # translation cannot be guessed safely, so it fails instead of silently
-        # returning a transcript in the wrong language.
-        if language_code:
-            raise
+    except RuntimeError as catalog_error:
+        # If the catalog request is blocked or malformed, use the library's
+        # native translation support before falling back to the legacy stack.
+        try:
+            return _youtube_transcript_api_fetch_result(video_id, language_code)
+        except Exception:
+            if language_code:
+                raise catalog_error
         segments = _fetch_transcript(video_id)
         selected = {"languageCode": "", "name": "Original language"}
         return _result(segments, [], selected, selected, [])
