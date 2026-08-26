@@ -76,15 +76,27 @@ class TranscriptBridgeTests(unittest.TestCase):
         with self.assertRaises(bridge.NoCaptionsError):
             bridge._select_caption_track([])
 
-    def test_language_selection_defaults_to_original_and_adds_translation_target(self):
+    def test_original_audio_language_is_prioritized_over_english(self):
         tracks = [
-            {"languageCode": "es", "name": "Spanish", "baseUrl": "https://example/caption?lang=es"},
-            {"languageCode": "en", "name": "English", "baseUrl": "https://example/caption?lang=en"},
+            {"languageCode": "en", "name": "English", "baseUrl": "https://example/en"},
+            {"languageCode": "ar", "name": "Arabic", "kind": "asr", "baseUrl": "https://example/ar"},
         ]
-        original, translated = bridge._select_language_track(tracks, "fr")
-        self.assertEqual(original["languageCode"], "es")
-        self.assertEqual(translated["languageCode"], "fr")
-        self.assertIn("tlang=fr", translated["baseUrl"])
+        prioritized = bridge._prioritize_original_track(tracks, "ar")
+        original = bridge._select_original_caption_track(prioritized)
+        self.assertEqual(prioritized[0]["languageCode"], "ar")
+        self.assertEqual(original["languageCode"], "ar")
+
+    def test_original_language_metadata_uses_known_language_name(self):
+        result = bridge._result(
+            [{"text": "مرحبا", "start": 0, "duration": 1}],
+            [],
+            {"languageCode": "ar", "kind": "asr"},
+            {"languageCode": "ar", "kind": "asr"},
+            [],
+        )
+        self.assertEqual(result["originalLanguage"]["code"], "ar")
+        self.assertEqual(result["originalLanguage"]["name"], "Arabic")
+        self.assertTrue(result["originalLanguage"]["isOriginal"])
 
     def test_json3_payload_is_parsed(self):
         payload = json.dumps({"events": [{"tStartMs": 1250, "dDurationMs": 2000, "segs": [{"utf8": "Hello"}]}]})

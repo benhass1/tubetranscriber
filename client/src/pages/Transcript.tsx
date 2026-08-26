@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { saveLocalHistoryEntry } from "@/lib/localHistory";
 import { fetchBrowserTranscript, type BrowserTranscriptResult } from "@/lib/browserTranscript";
 import { groupTranscript, plainTranscript, timestamp, toMarkdown, toSrt, toTxt, toVtt, type TranscriptGroup } from "@shared/transcript";
-import { ArrowRight, Check, ChevronLeft, Clipboard, Download, ExternalLink, FileJson, FileText, Languages, Link2, Loader2, Search, Subtitles, X } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, Clipboard, Download, ExternalLink, FileJson, FileText, Link2, Loader2, Search, Subtitles, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 
@@ -55,17 +55,12 @@ export default function Transcript() {
   const [nextUrl, setNextUrl] = useState("");
   const [actionNotice, setActionNotice] = useState("");
   const [hasHydrated, setHasHydrated] = useState(false);
-  const [selectedLanguageCode, setSelectedLanguageCode] = useState("");
   const previousSourceUrl = useRef("");
   useEffect(() => { setHasHydrated(true); }, []);
   useEffect(() => {
     if (!sourceUrl) return;
     if (previousSourceUrl.current !== sourceUrl) {
       previousSourceUrl.current = sourceUrl;
-      if (selectedLanguageCode) {
-        setSelectedLanguageCode("");
-        return;
-      }
     }
     let cancelled = false;
     lookup.reset();
@@ -73,12 +68,12 @@ export default function Transcript() {
     setBrowserData(undefined);
     setBrowserFallbackError("");
     setBrowserFallbackPending(false);
-    lookup.mutate({ url: sourceUrl, ...(selectedLanguageCode ? { languageCode: selectedLanguageCode } : {}) }, {
+    lookup.mutate({ url: sourceUrl }, {
       onError: async error => {
         if (error.data?.code !== "TOO_MANY_REQUESTS") return;
         setBrowserFallbackPending(true);
         try {
-          const result = await fetchBrowserTranscript(sourceUrl, selectedLanguageCode || undefined);
+          const result = await fetchBrowserTranscript(sourceUrl);
           if (cancelled) return;
           setBrowserData(result);
           browserIngest.mutate({ url: sourceUrl, ...result });
@@ -90,14 +85,11 @@ export default function Transcript() {
       },
     });
     return () => { cancelled = true; };
-  }, [sourceUrl, selectedLanguageCode]);
-  const browserDataForSelection = selectedLanguageCode ? undefined : browserData;
-  const data = lookup.data ?? browserDataForSelection;
-  const effectiveError = browserFallbackError || (browserDataForSelection ? "" : lookup.error?.message || "");
+  }, [sourceUrl]);
+  const data = lookup.data ?? browserData;
+  const effectiveError = browserFallbackError || (browserData ? "" : lookup.error?.message || "");
   const transcriptText = data ? plainTranscript(data.segments) : "";
-  const availableLanguages = data?.availableLanguages ?? [];
-  const translationLanguages = availableLanguages.filter(language => language.code && !language.isOriginal);
-  const selectedLanguage = data?.selectedLanguage ?? data?.originalLanguage;
+  const originalLanguage = data?.originalLanguage;
   const hasSearchMatch = !query.trim() || transcriptText.toLowerCase().includes(query.toLowerCase());
   const filename = (data?.metadata.title || "tubetranscript").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "transcript";
   const announce = (message: string) => { setActionNotice(message); window.setTimeout(() => setActionNotice(""), 2600); };
@@ -113,5 +105,5 @@ export default function Transcript() {
   if (!sourceUrl) return <SiteShell><section className="page-empty content-container"><Subtitles size={36} /><h1>No video link yet.</h1><p>Return home and paste a YouTube link to begin.</p><Link href="/" className="primary-button">Go to home</Link></section></SiteShell>;
   if (lookup.isPending || browserFallbackPending || (!data && !effectiveError)) return <SiteShell><section className="loading-page content-container"><div className="loading-orbit"><Loader2 size={28} /></div><p className="eyebrow">Reading YouTube captions</p><h1>{browserFallbackPending ? "Trying browser extraction." : "Preparing your transcript."}</h1><p>{browserFallbackPending ? "YouTube is limiting the server request, so this browser is trying the public caption endpoint directly." : "We are retrieving the video details and organizing its captions into a clean reading experience."}</p></section></SiteShell>;
   if (effectiveError || !data) return <SiteShell><section className="page-empty content-container"><span className="error-mark"><X size={27} /></span><p className="eyebrow">Transcript not found</p><h1>We could not retrieve captions.</h1><p>{effectiveError || "Please confirm the URL is public and try again."}</p><button className="primary-button" onClick={() => navigate("/")}>Try another link</button></section></SiteShell>;
-  return <SiteShell><section className="transcript-page content-container"><Link href="/" className="back-link"><ChevronLeft size={16} /> New extraction</Link><form className="inline-extract-form" onSubmit={startAnother}><label><Link2 size={17} /><input value={nextUrl} onChange={event => setNextUrl(event.target.value)} placeholder="Paste another YouTube link to generate a new transcript" aria-label="YouTube link for another transcript" /></label><button type="submit">Generate transcript <ArrowRight size={16} /></button></form><p className="reader-action-notice" role="status" aria-live="polite">{actionNotice}</p><div className="video-summary"><img src={data.metadata.thumbnailUrl} alt={`YouTube video thumbnail for ${data.metadata.title}`} /><div><p className="eyebrow">{data.metadata.channel}</p><h1>{data.metadata.title}</h1><div className="video-meta"><span>{selectedLanguage?.name || "Original language"} transcript</span><label className="language-control"><Languages size={14} /><span className="sr-only">Transcript language</span><select value={selectedLanguageCode} onChange={event => setSelectedLanguageCode(event.target.value)} aria-label="Transcript language" disabled={translationLanguages.length === 0}><option value="">Original{data.originalLanguage?.name ? ` — ${data.originalLanguage.name}` : ""}</option>{translationLanguages.map(language => <option key={language.code} value={language.code}>{language.name}{language.isAutoGenerated ? " — auto-generated" : ""}</option>)}</select></label><a href={`https://www.youtube.com/watch?v=${data.metadata.videoId}`} target="_blank" rel="noreferrer">Open in YouTube <ExternalLink size={13} /></a></div></div></div><div className="transcript-layout"><aside className="export-panel"><p className="panel-label">Transcript tools</p><button type="button" className="copy-button" onClick={copy} aria-pressed={copied}><span className="action-icon">{copied ? <Check size={17} /> : <Clipboard size={17} />}</span><span className="export-label">{copied ? "Copied to clipboard" : "Copy all text"}</span></button><div className="export-divider" /><p className="panel-label">Download format</p><label className="timestamp-toggle"><input type="checkbox" checked={includeTimestamps} onChange={event => setIncludeTimestamps(event.target.checked)} /> Include timestamps in TXT</label><button type="button" onClick={() => exportTranscript("Plain text", "txt", includeTimestamps ? toTxt(data.segments) : transcriptText, "text/plain;charset=utf-8")}><FileText size={16} /><span className="export-label">Plain text</span><Download size={15} /></button><button type="button" onClick={() => exportTranscript("JSON", "json", JSON.stringify({ video: data.metadata, transcript: data.segments }, null, 2), "application/json")}><FileJson size={16} /><span className="export-label">JSON data</span><Download size={15} /></button><button type="button" onClick={() => exportTranscript("SRT", "srt", toSrt(data.segments), "text/plain;charset=utf-8")}><Subtitles size={16} /><span className="export-label">SRT subtitles</span><Download size={15} /></button><button type="button" onClick={() => exportTranscript("VTT", "vtt", toVtt(data.segments), "text/vtt;charset=utf-8")}><Subtitles size={16} /><span className="export-label">VTT captions</span><Download size={15} /></button><button type="button" onClick={() => exportTranscript("Markdown", "md", includeTimestamps ? toMarkdown(data.metadata, data.segments) : `# ${data.metadata.title}\n\n_Source: ${data.metadata.channel}_\n\n${transcriptText}\n`, "text/markdown;charset=utf-8")}><FileText size={16} /><span className="export-label">Markdown</span><Download size={15} /></button><p className="copyright-note">Only download material you have the right to use. Respect the original creator and copyright.</p></aside><article className="reader-card"><div className="reader-header"><div><p className="panel-label">Full transcript</p><h2>Read the complete text</h2></div><label className="search-field"><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search transcript" aria-label="Search transcript" />{query && <button type="button" onClick={() => setQuery("")} aria-label="Clear search"><X size={14} /></button>}</label></div><div className="reader-content">{hasSearchMatch ? <p className="plain-transcript">{highlight(transcriptText, query)}</p> : <div className="no-matches"><Search size={24} /><h3>No matching words</h3><p>Try a different phrase or clear the search.</p></div>}</div></article></div></section></SiteShell>;
+  return <SiteShell><section className="transcript-page content-container"><Link href="/" className="back-link"><ChevronLeft size={16} /> New extraction</Link><form className="inline-extract-form" onSubmit={startAnother}><label><Link2 size={17} /><input value={nextUrl} onChange={event => setNextUrl(event.target.value)} placeholder="Paste another YouTube link to generate a new transcript" aria-label="YouTube link for another transcript" /></label><button type="submit">Generate transcript <ArrowRight size={16} /></button></form><p className="reader-action-notice" role="status" aria-live="polite">{actionNotice}</p><div className="video-summary"><img src={data.metadata.thumbnailUrl} alt={`YouTube video thumbnail for ${data.metadata.title}`} /><div><p className="eyebrow">{data.metadata.channel}</p><h1>{data.metadata.title}</h1><div className="video-meta"><span>{originalLanguage?.name || "Original language"} transcript</span><a href={`https://www.youtube.com/watch?v=${data.metadata.videoId}`} target="_blank" rel="noreferrer">Open in YouTube <ExternalLink size={13} /></a></div></div></div><div className="transcript-layout"><aside className="export-panel"><p className="panel-label">Transcript tools</p><button type="button" className="copy-button" onClick={copy} aria-pressed={copied}><span className="action-icon">{copied ? <Check size={17} /> : <Clipboard size={17} />}</span><span className="export-label">{copied ? "Copied to clipboard" : "Copy all text"}</span></button><div className="export-divider" /><p className="panel-label">Download format</p><label className="timestamp-toggle"><input type="checkbox" checked={includeTimestamps} onChange={event => setIncludeTimestamps(event.target.checked)} /> Include timestamps in TXT</label><button type="button" onClick={() => exportTranscript("Plain text", "txt", includeTimestamps ? toTxt(data.segments) : transcriptText, "text/plain;charset=utf-8")}><FileText size={16} /><span className="export-label">Plain text</span><Download size={15} /></button><button type="button" onClick={() => exportTranscript("JSON", "json", JSON.stringify({ video: data.metadata, transcript: data.segments }, null, 2), "application/json")}><FileJson size={16} /><span className="export-label">JSON data</span><Download size={15} /></button><button type="button" onClick={() => exportTranscript("SRT", "srt", toSrt(data.segments), "text/plain;charset=utf-8")}><Subtitles size={16} /><span className="export-label">SRT subtitles</span><Download size={15} /></button><button type="button" onClick={() => exportTranscript("VTT", "vtt", toVtt(data.segments), "text/vtt;charset=utf-8")}><Subtitles size={16} /><span className="export-label">VTT captions</span><Download size={15} /></button><button type="button" onClick={() => exportTranscript("Markdown", "md", includeTimestamps ? toMarkdown(data.metadata, data.segments) : `# ${data.metadata.title}\n\n_Source: ${data.metadata.channel}_\n\n${transcriptText}\n`, "text/markdown;charset=utf-8")}><FileText size={16} /><span className="export-label">Markdown</span><Download size={15} /></button><p className="copyright-note">Only download material you have the right to use. Respect the original creator and copyright.</p></aside><article className="reader-card"><div className="reader-header"><div><p className="panel-label">Full transcript</p><h2>Read the complete text</h2></div><label className="search-field"><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search transcript" aria-label="Search transcript" />{query && <button type="button" onClick={() => setQuery("")} aria-label="Clear search"><X size={14} /></button>}</label></div><div className="reader-content">{hasSearchMatch ? <p className="plain-transcript">{highlight(transcriptText, query)}</p> : <div className="no-matches"><Search size={24} /><h3>No matching words</h3><p>Try a different phrase or clear the search.</p></div>}</div></article></div></section></SiteShell>;
 }

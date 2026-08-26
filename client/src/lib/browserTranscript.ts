@@ -10,8 +10,6 @@ export type BrowserTranscriptResult = {
   };
   segments: TranscriptSegment[];
   originalLanguage?: TranscriptLanguage;
-  selectedLanguage?: TranscriptLanguage;
-  availableLanguages?: TranscriptLanguage[];
 };
 
 type CaptionTrack = {
@@ -19,7 +17,6 @@ type CaptionTrack = {
   langCode: string;
   kind?: string;
   name?: string;
-  tlang?: string;
 };
 
 function videoIdFromInput(value: string) {
@@ -59,8 +56,6 @@ export function buildBrowserCaptionUrl(videoId: string, track: CaptionTrack) {
   const params = new URLSearchParams({ v: videoId, lang: track.langCode, fmt: "json3" });
   if (track.kind) params.set("kind", track.kind);
   if (track.name) params.set("name", track.name);
-  if (track.id) params.set("tlang", track.id);
-  if (track.tlang) params.set("tlang", track.tlang);
   return `https://www.youtube.com/api/timedtext?${params.toString()}`;
 }
 
@@ -108,7 +103,6 @@ async function fetchTracks(videoId: string) {
     langCode: node.getAttribute("lang_code") ?? "",
     kind: node.getAttribute("kind") ?? undefined,
     name: node.getAttribute("name") ?? undefined,
-    tlang: node.getAttribute("tlang") ?? undefined,
   }));
 }
 
@@ -130,20 +124,14 @@ async function fetchMetadata(videoId: string) {
   }
 }
 
-export async function fetchBrowserTranscript(sourceUrl: string, languageCode?: string): Promise<BrowserTranscriptResult> {
+export async function fetchBrowserTranscript(sourceUrl: string): Promise<BrowserTranscriptResult> {
   const videoId = videoIdFromInput(sourceUrl);
   if (!videoId) throw new Error("Paste a valid YouTube video link before trying browser extraction.");
   const tracks = await fetchTracks(videoId);
   if (!tracks.length) throw new Error("No public caption track was exposed to this browser.");
 
   const originalTrack = chooseTrack(tracks) ?? tracks[0];
-  const targetCode = languageCode?.trim();
-  const selectedTrack = targetCode && targetCode.toLowerCase() !== originalTrack.langCode.toLowerCase()
-    ? { ...originalTrack, langCode: originalTrack.langCode, tlang: targetCode }
-    : originalTrack;
-  const orderedTracks = [selectedTrack, originalTrack, ...tracks].filter((track, index, all): track is CaptionTrack => Boolean(track) && all.findIndex(candidate => candidate?.langCode === track?.langCode && candidate?.kind === track?.kind && candidate?.name === track?.name && candidate?.tlang === track?.tlang) === index);
-  const availableLanguages = tracks.filter((track, index, all) => /^[a-z]{2}(?:-[A-Z]{2})?$/i.test(track.langCode) && all.findIndex(candidate => candidate.langCode === track.langCode) === index).map(track => languageInfo(track, track === originalTrack));
-  for (const track of orderedTracks) {
+  for (const track of [originalTrack, ...tracks.filter(track => track !== originalTrack)]) {
     const response = await fetch(buildBrowserCaptionUrl(videoId, track), { mode: "cors", credentials: "omit", headers: { Accept: "application/json,application/xml,text/xml,*/*" } });
     if (!response.ok) continue;
     const payload = await response.text();
@@ -152,16 +140,12 @@ export async function fetchBrowserTranscript(sourceUrl: string, languageCode?: s
       metadata: await fetchMetadata(videoId),
       segments,
       originalLanguage: languageInfo(originalTrack, true),
-      selectedLanguage: targetCode ? { code: targetCode, name: targetCode } : languageInfo(originalTrack, true),
-      availableLanguages,
     };
     const xmlSegments = parseXml(payload);
     if (xmlSegments.length) return {
       metadata: await fetchMetadata(videoId),
       segments: xmlSegments,
       originalLanguage: languageInfo(originalTrack, true),
-      selectedLanguage: targetCode ? { code: targetCode, name: targetCode } : languageInfo(originalTrack, true),
-      availableLanguages,
     };
   }
   throw new Error("YouTube exposed caption tracks, but returned no readable caption text to this browser.");

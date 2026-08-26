@@ -3,8 +3,8 @@ import type { ExtractedTranscript } from "./transcript";
 
 export const TRANSCRIPT_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
 
-function cacheKey(videoId: string, languageCode?: string) {
-  return `transcript:v3:${videoId}:${languageCode?.trim().toLowerCase() || "original"}`;
+function cacheKey(videoId: string) {
+  return `transcript:v4:${videoId}`;
 }
 
 let redisClient: Redis | null | undefined;
@@ -22,14 +22,14 @@ export function isTranscriptCacheConfigured() {
   return Boolean(getRedisClient());
 }
 
-export async function getCachedTranscript(videoId: string, languageCode?: string): Promise<ExtractedTranscript | null> {
+export async function getCachedTranscript(videoId: string): Promise<ExtractedTranscript | null> {
   const redis = getRedisClient();
   if (!redis) return null;
-  return (await redis.get<ExtractedTranscript>(cacheKey(videoId, languageCode))) ?? null;
+  return (await redis.get<ExtractedTranscript>(cacheKey(videoId))) ?? null;
 }
 
-export async function setCachedTranscript(videoId: string, transcript: ExtractedTranscript, languageCode?: string) {
+export async function setCachedTranscript(videoId: string, transcript: ExtractedTranscript) {
   const redis = getRedisClient();
   if (!redis) return;
-  await redis.set(cacheKey(videoId, languageCode), transcript, { ex: TRANSCRIPT_CACHE_TTL_SECONDS });
+  await redis.set(cacheKey(videoId), transcript, { ex: TRANSCRIPT_CACHE_TTL_SECONDS });
 }

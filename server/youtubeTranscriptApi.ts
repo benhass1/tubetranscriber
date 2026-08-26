@@ -13,8 +13,6 @@ type PythonResponse = {
   segments?: TranscriptSegment[];
   plainText?: string;
   originalLanguage?: TranscriptLanguage;
-  selectedLanguage?: TranscriptLanguage;
-  availableLanguages?: TranscriptLanguage[];
   kind?: string;
   message?: string;
 };
@@ -28,11 +26,9 @@ export function formatWorkerProxy(value = process.env.CF_WORKER_PROXY ?? "") {
   return proxy ? (proxy.endsWith("?url=") ? proxy : `${proxy}?url=`) : null;
 }
 
-export async function extractWithYouTubeTranscriptApi(videoId: string, languageCode?: string): Promise<{
+export async function extractWithYouTubeTranscriptApi(videoId: string): Promise<{
   segments: TranscriptSegment[];
   originalLanguage?: TranscriptLanguage;
-  selectedLanguage?: TranscriptLanguage;
-  availableLanguages?: TranscriptLanguage[];
 }> {
   return new Promise((resolve, reject) => {
     const child = spawn("python3", [bridgePath], { stdio: ["pipe", "pipe", "pipe"] });
@@ -51,8 +47,6 @@ export async function extractWithYouTubeTranscriptApi(videoId: string, languageC
         resolve({
           segments: payload.segments,
           originalLanguage: payload.originalLanguage,
-          selectedLanguage: payload.selectedLanguage,
-          availableLanguages: payload.availableLanguages,
         });
         return;
       }
@@ -62,6 +56,6 @@ export async function extractWithYouTubeTranscriptApi(videoId: string, languageC
       }
       reject(new YouTubeTranscriptApiError("upstream_error", stderr.trim() || "Transcript extraction failed."));
     });
-    child.stdin.end(JSON.stringify({ videoId, languageCode: languageCode || null }));
+    child.stdin.end(JSON.stringify({ videoId }));
   });
 }

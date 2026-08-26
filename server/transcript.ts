@@ -17,14 +17,12 @@ export type ExtractedTranscript = {
   metadata: VideoMetadata;
   segments: TranscriptSegment[];
   originalLanguage?: TranscriptLanguage;
-  selectedLanguage?: TranscriptLanguage;
-  availableLanguages?: TranscriptLanguage[];
 };
 const SUCCESS_CACHE_TTL_MS = 5 * 60 * 1000;
 const successfulTranscriptCache = new Map<string, { expiresAt: number; result: ExtractedTranscript }>();
 
-function transcriptMemoryKey(videoId: string, languageCode?: string) {
-  return `${videoId}:${languageCode?.trim().toLowerCase() || "original"}`;
+function transcriptMemoryKey(videoId: string) {
+  return videoId;
 }
 
 export function parseYoutubeId(value: string) {
@@ -91,13 +89,13 @@ export function normalizeTranscript(raw: Array<{ text: string; offset: number; d
     .filter(item => item.text.length > 0);
 }
 
-export async function extractTranscript(url: string, languageCode?: string) {
+export async function extractTranscript(url: string) {
   const videoId = parseYoutubeId(url);
   if (!videoId) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Paste a valid YouTube video link, Short, embed link, or 11-character video ID." });
   }
 
-  const cacheKey = transcriptMemoryKey(videoId, languageCode);
+  const cacheKey = transcriptMemoryKey(videoId);
   const cached = successfulTranscriptCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.result;
   if (cached) successfulTranscriptCache.delete(cacheKey);
@@ -106,7 +104,7 @@ export async function extractTranscript(url: string, languageCode?: string) {
   const metadata = { ...oembedMetadata, durationSeconds: pageDuration };
 
   try {
-    const extracted = await extractWithYouTubeTranscriptApi(videoId, languageCode);
+    const extracted = await extractWithYouTubeTranscriptApi(videoId);
     const segments = extracted.segments;
     if (segments.length === 0) {
       throw new TRPCError({ code: "NOT_FOUND", message: "No public captions are available for this video." });
@@ -116,8 +114,6 @@ export async function extractTranscript(url: string, languageCode?: string) {
       metadata: { ...metadata, durationSeconds: last ? last.start + last.duration : null },
       segments,
       originalLanguage: extracted.originalLanguage,
-      selectedLanguage: extracted.selectedLanguage,
-      availableLanguages: extracted.availableLanguages,
     };
     successfulTranscriptCache.set(cacheKey, { expiresAt: Date.now() + SUCCESS_CACHE_TTL_MS, result });
     return result;
