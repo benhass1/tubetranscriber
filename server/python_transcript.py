@@ -974,9 +974,11 @@ def _fetch_transcript_result(video_id: str, language_code: str | None = None) ->
             return _youtube_transcript_api_fetch_result(video_id, language_code)
         except Exception:
             if language_code:
-                raise catalog_error
+                normalized = str(language_code).strip().lower()
+                if not (normalized == "en" or normalized.startswith("en-")):
+                    raise catalog_error
         segments = _fetch_transcript(video_id)
-        selected = {"languageCode": "", "name": "Original language"}
+        selected = {"languageCode": "en", "name": "English"}
         return _result(segments, [], selected, selected, [])
 
 
