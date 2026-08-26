@@ -518,8 +518,8 @@ def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
         ):
             raise NoCaptionsError("No public captions are available for this video.") from error
         if "no element found" in lowered or "empty" in lowered or "xml" in lowered:
-            raise CaptionPayloadError(
-                "YouTube returned an empty or corrupted transcript response. Please retry in a few moments."
+            raise YouTubeRateLimitError(
+                "YouTube is temporarily limiting transcript requests. Please wait a moment and try again."
             ) from error
         raise
     except Exception as error:
@@ -532,8 +532,8 @@ def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
         ):
             raise NoCaptionsError("No public captions are available for this video.") from error
         if "no element found" in lowered or "empty" in lowered or "xml" in lowered:
-            raise CaptionPayloadError(
-                "YouTube returned an empty or corrupted transcript response. Please retry in a few moments."
+            raise YouTubeRateLimitError(
+                "YouTube is temporarily limiting transcript requests. Please wait a moment and try again."
             ) from error
         raise RuntimeError(f"Transcript extraction failed: {error_message}") from error
 
@@ -585,6 +585,9 @@ def main() -> None:
             kind = "no_transcript"
         elif message.startswith("The requested video"):
             kind = "video_unavailable"
+        elif "empty or corrupted" in message.lower() or "no usable caption" in message.lower():
+            kind = "rate_limited"
+            message = "YouTube is temporarily limiting transcript requests. Please wait a moment and try again."
         else:
             kind = "upstream_error"
         print(json.dumps({"kind": kind, "message": message}))
