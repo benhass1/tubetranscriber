@@ -86,6 +86,7 @@ export default {
     }
     upstreamHeaders.set("referer", "https://www.youtube.com/");
     upstreamHeaders.set("origin", "https://www.youtube.com");
+    upstreamHeaders.set("accept-encoding", "identity");
 
     try {
       const upstream = await fetch(targetUrl, {
