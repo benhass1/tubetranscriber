@@ -1135,12 +1135,15 @@ def _fetch_transcript_result(video_id: str) -> TranscriptResult:
     try:
         return _fetch_transcript_in_language(video_id)
     except (RuntimeError, requests.RequestException) as catalog_error:
+        # Try the authenticated dynamic-key path early. The Node bridge has a
+        # 30-second process window, so a slow unauthenticated library request
+        # must not consume the time needed by the Worker-backed fallback.
         try:
-            return _youtube_transcript_api_fetch_result(video_id)
+            return _fetch_innertube_api_key_result(video_id)
         except Exception:
             pass
         try:
-            return _fetch_innertube_api_key_result(video_id)
+            return _youtube_transcript_api_fetch_result(video_id)
         except Exception:
             pass
         try:
