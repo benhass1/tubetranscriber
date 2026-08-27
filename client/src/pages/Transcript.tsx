@@ -70,7 +70,9 @@ export default function Transcript() {
     setBrowserFallbackPending(false);
     lookup.mutate({ url: sourceUrl }, {
       onError: async error => {
-        if (error.data?.code !== "TOO_MANY_REQUESTS") return;
+        const code = error.data?.code;
+        const canTryBrowserFallback = code === "TOO_MANY_REQUESTS" || code === "INTERNAL_SERVER_ERROR";
+        if (!canTryBrowserFallback) return;
         setBrowserFallbackPending(true);
         try {
           const result = await fetchBrowserTranscript(sourceUrl);
