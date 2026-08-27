@@ -9,6 +9,17 @@ const pseoPaths = [
 ];
 
 describe("pSEO SSR metadata", () => {
+  it("includes the requested high-intent homepage keywords", () => {
+    const head = getHeadMeta("/");
+    expect(head.title.toLowerCase()).toContain("free youtube transcript generator");
+    expect(head.title.toLowerCase()).toContain("srt");
+    expect(head.title.toLowerCase()).toContain("json");
+    expect(head.title.toLowerCase()).toContain("txt");
+    expect(head.description.toLowerCase()).toContain("no registration required");
+    const graph = (head.jsonLd as { "@graph"?: Array<Record<string, unknown>> })?.["@graph"] ?? [];
+    expect(graph.map((item) => item["@type"])).toEqual(expect.arrayContaining(["SoftwareApplication", "HowTo", "FAQPage"]));
+  });
+
   it("registers every requested landing page with indexable metadata", () => {
     for (const path of pseoPaths) {
       const head = getHeadMeta(path);

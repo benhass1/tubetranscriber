@@ -13,7 +13,7 @@ import { pseoPages } from "../../client/src/pages/pseoData";
 
 const canonicalOrigin = (process.env.CANONICAL_ORIGIN ?? "https://tubetransc-5mr8an8j.manus.space").replace(/\/$/, "");
 const siteName = "TubeTranscriber";
-const defaultDescription = "Extract, search, and download public YouTube video transcripts instantly in TXT, JSON, or SRT format. Free, fast, and no account required.";
+const defaultDescription = "Free YouTube transcript generator to download SRT, JSON, and TXT files from public video captions. Search, copy, and export with no registration required.";
 
 const escapeHtml = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const safeText = (value: string, max: number) => value.replace(/\s+/g, " ").trim().slice(0, max);

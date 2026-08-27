@@ -16,7 +16,7 @@ export type HeadMeta = {
 
 const SITE = "TubeTranscriber";
 const SITE_URL = "https://tubetranscriber.com";
-const DEFAULT_DESCRIPTION = "Extract, search, and download public YouTube video transcripts instantly in TXT, JSON, or SRT format. Free, fast, and no account required.";
+const DEFAULT_DESCRIPTION = "Free YouTube transcript generator to download SRT, JSON, and TXT files from public video captions. Search, copy, and export with no registration required.";
 
 const softwareApplication = {
   "@type": "SoftwareApplication",
@@ -96,7 +96,7 @@ function blogIndexSchema() {
 export function getHeadMeta(url: string): HeadMeta {
   const path = (url.split("?")[0].replace(/\/+$/, "") || "/").toLowerCase();
   const pseo = findPseoPage(path);
-  if (path === "/") return { title: "YouTube to Transcript Generator | TubeTranscriber", description: DEFAULT_DESCRIPTION, canonicalPath: "/", ogTitle: "YouTube to Transcript Generator | TubeTranscriber", ogDescription: "Extract, search, and download public YouTube video transcripts instantly in TXT, JSON, or SRT format. Free and instant.", ogType: "website", twitterCard: "summary_large_image", jsonLd: homeSchema() };
+  if (path === "/") return { title: "Free YouTube Transcript Generator | Download SRT, JSON & TXT", description: DEFAULT_DESCRIPTION, canonicalPath: "/", ogTitle: "Free YouTube Transcript Generator | Download SRT, JSON & TXT", ogDescription: DEFAULT_DESCRIPTION, ogType: "website", twitterCard: "summary_large_image", jsonLd: homeSchema() };
   if (pseo) return { title: `${pseo.title} | TubeTranscriber`, description: pseo.description, canonicalPath: pseo.path, ogTitle: `${pseo.title} | TubeTranscriber`, ogDescription: pseo.description, ogType: "website", jsonLd: pseoSchema(pseo) };
   if (path === "/blog") return { title: "TubeTranscriber Blog", description: "Explore practical guides, tutorials, and tips on converting YouTube video captions into clean text, JSON, and SRT files for creators.", canonicalPath: "/blog", ogType: "website", jsonLd: blogIndexSchema() };
   if (path === "/about") return { title: "About, FAQ, and Caption Guide | TubeTranscriber", description: "Learn how TubeTranscriber reads YouTube captions, stores history in your browser, and offers readable text exports.", canonicalPath: "/about", jsonLd: faq };
