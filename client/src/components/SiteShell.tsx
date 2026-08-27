@@ -1,4 +1,5 @@
 import { useTheme } from "@/contexts/ThemeContext";
+import { getEngineFreshnessText } from "@/lib/freshness";
 import { Menu, Moon, Plus, Sun, Waves, X } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -46,6 +47,6 @@ export default function SiteShell({ children }: { children: ReactNode }) {
       </nav>
     </header>
     <main>{children}</main>
-    <footer className="site-footer"><div className="footer-inner"><Brand /><div className="footer-links"><Link href="/about">About & FAQ</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/copyright">Copyright</Link><Link href="/contact">Contact</Link><Link href="/speed-test">Speed test</Link></div><p>Transcript history remains in your browser. Not affiliated with YouTube or Google.</p><span className="author-signal">Maintained by the TubeTranscriber Engineering Team</span></div></footer>
+    <footer className="site-footer"><div className="footer-inner"><Brand /><div className="footer-links"><Link href="/about">About & FAQ</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/copyright">Copyright</Link><Link href="/contact">Contact</Link><Link href="/speed-test">Speed test</Link></div><p className="engine-freshness footer-freshness">{getEngineFreshnessText()}</p><p>Transcript history remains in your browser. Not affiliated with YouTube or Google.</p><span className="author-signal">Maintained by the TubeTranscriber Engineering Team</span></div></footer>
   </div>;
 }

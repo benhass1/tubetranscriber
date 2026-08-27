@@ -1,4 +1,7 @@
 import SiteShell from "@/components/SiteShell";
+import InteractiveDemo from "@/components/InteractiveDemo";
+import DeepDive from "@/components/DeepDive";
+import { getEngineFreshnessText } from "@/lib/freshness";
 import { ArrowRight, CheckCircle2, FileDown, Quote, Search, ShieldCheck, Sparkles, Subtitles } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -34,6 +37,7 @@ export default function Home() {
           </form>
           {error && <p className="input-error" role="alert">{error}</p>}
           <div className="trust-row"><CheckCircle2 size={16} /><span>Supports videos, Shorts, and embed links</span><span className="trust-dot" /><span>TXT, JSON, and SRT exports</span></div>
+          <InteractiveDemo />
         </div>
       </section>
 
@@ -70,20 +74,23 @@ export default function Home() {
       <section className="comparison-section content-container" aria-labelledby="comparison-heading">
         <div className="section-heading"><p className="eyebrow">At a glance</p><h2 id="comparison-heading">How is TubeTranscriber different from standard YouTube captions?</h2><p className="section-answer">TubeTranscriber organizes YouTube captions into a focused workspace with search, local history, and practical export formats.</p></div>
         <div className="comparison-table-wrap">
-          <table className="comparison-table comparison-table-desktop"><thead><tr><th scope="col">Capability</th><th scope="col">TubeTranscriber</th><th scope="col">Standard YouTube captions</th></tr></thead><tbody><tr><th scope="row">Formats</th><td>TXT, JSON, and SRT downloads</td><td>Player display and platform controls</td></tr><tr><th scope="row">Reading</th><td>Continuous text with browser search</td><td>Caption view inside the video player</td></tr><tr><th scope="row">Privacy</th><td>Recent history stays in your browser</td><td>History is not a TubeTranscriber feature</td></tr><tr><th scope="row">Cost</th><td>100% free, 0 registration required</td><td>Depends on the YouTube experience</td></tr></tbody></table>
-          <div className="comparison-cards" aria-label="TubeTranscriber and standard YouTube captions comparison">
-            <article className="comparison-card"><h3>Formats</h3><div><span className="comparison-label">TubeTranscriber</span><p>TXT, JSON, and SRT downloads</p></div><div><span className="comparison-label">Standard YouTube captions</span><p>Player display and platform controls</p></div></article>
-            <article className="comparison-card"><h3>Reading</h3><div><span className="comparison-label">TubeTranscriber</span><p>Continuous text with browser search</p></div><div><span className="comparison-label">Standard YouTube captions</span><p>Caption view inside the video player</p></div></article>
-            <article className="comparison-card"><h3>Privacy</h3><div><span className="comparison-label">TubeTranscriber</span><p>Recent history stays in your browser</p></div><div><span className="comparison-label">Standard YouTube captions</span><p>History is not a TubeTranscriber feature</p></div></article>
-            <article className="comparison-card"><h3>Cost</h3><div><span className="comparison-label">TubeTranscriber</span><p>100% free, 0 registration required</p></div><div><span className="comparison-label">Standard YouTube captions</span><p>Depends on the YouTube experience</p></div></article>
+          <table className="comparison-table comparison-table-desktop" aria-label="TubeTranscriber and public transcript tools comparison"><thead><tr><th scope="col">Capability</th><th scope="col">TubeTranscriber</th><th scope="col">Standard YouTube captions</th><th scope="col">Other public tools</th></tr></thead><tbody><tr><th scope="row">Formats</th><td>TXT, JSON, and SRT downloads</td><td>Player display and platform controls</td><td>Varies by product and plan</td></tr><tr><th scope="row">Reading</th><td>Continuous text with browser search</td><td>Caption view inside the video player</td><td>Often includes extra AI or editor features</td></tr><tr><th scope="row">Privacy</th><td>Browser-local history; no account required</td><td>History is not a TubeTranscriber feature</td><td>Review each service’s data policy</td></tr><tr><th scope="row">Cost</th><td>Free workflow with no registration requirement</td><td>Included in the YouTube experience</td><td>Free tiers may include usage limits</td></tr><tr><th scope="row">YouTubeToTranscript</th><td>Focused exports and no forced extension</td><td>Captions remain in the player</td><td><a className="comparison-link" href="/" aria-label="YouTubeToTranscript comparison">YouTubeToTranscript — free public web tool</a></td></tr><tr><th scope="row">Tactiq</th><td>Paste a public link; no meeting extension required</td><td>Captions remain in the player</td><td><a className="comparison-link" href="/" aria-label="Tactiq comparison">Tactiq — Chrome extension with free-plan limits</a></td></tr><tr><th scope="row">YTTranscript.ai</th><td>Plain exports without AI upsell steps</td><td>Captions remain in the player</td><td><a className="comparison-link" href="/" aria-label="YTTranscript.ai comparison">YTTranscript.ai — AI insights and paid tiers</a></td></tr></tbody></table>
+          <div className="comparison-cards" aria-label="Responsive comparison of TubeTranscriber and public transcript tools">
+            <article className="comparison-card"><h3>Formats</h3><div><span className="comparison-label">TubeTranscriber</span><p>TXT, JSON, and SRT downloads</p></div><div><span className="comparison-label">Standard YouTube captions</span><p>Player display and platform controls</p></div><div><span className="comparison-label">Other public tools</span><p>Varies by product and plan</p></div></article>
+            <article className="comparison-card"><h3>Privacy</h3><div><span className="comparison-label">TubeTranscriber</span><p>Browser-local history; no account required</p></div><div><span className="comparison-label">Other public tools</span><p>Review each service’s data policy</p></div></article>
+            <article className="comparison-card"><h3>Competitor models</h3><div><span className="comparison-label"><a className="comparison-link" href="/">YouTubeToTranscript</a></span><p>Free public web tool with its own workflow.</p></div><div><span className="comparison-label"><a className="comparison-link" href="/">Tactiq</a></span><p>Chrome extension with free-plan limits.</p></div><div><span className="comparison-label"><a className="comparison-link" href="/">YTTranscript.ai</a></span><p>AI insights and paid tiers.</p></div></article>
+            <article className="comparison-card"><h3>TubeTranscriber edge</h3><div><span className="comparison-label">No forced extension</span><p>Paste a public link and keep the workflow focused.</p></div><div><span className="comparison-label">Free, no registration requirement</span><p>Start with available public captions.</p></div></article>
           </div>
         </div>
+        <p className="comparison-disclaimer">Competitor descriptions summarize publicly visible product pages and can change as products evolve. TubeTranscriber is independent and not affiliated with these services.</p>
       </section>
 
       <section className="landing-faq" aria-labelledby="faq-preview-heading"><div className="content-container landing-faq-inner"><div><p className="eyebrow">A few quick answers</p><h2 id="faq-preview-heading">Questions creators ask first.</h2></div><div className="faq-preview"><p><strong>Which public videos can I transcribe?</strong><span>Public videos, Shorts, and embed links with captions exposed by YouTube can be processed.</span></p><p><strong>Is TubeTranscriber free to use?</strong><span>Yes. TubeTranscriber is 100% free and requires 0 registration; caption access still depends on the source video.</span></p><Link href="/about">Read the full FAQ <ArrowRight size={15} /></Link></div></div></section>
+      <p className="engine-freshness content-container">{getEngineFreshnessText()}</p>
 
       <section className="how-section" aria-labelledby="how-heading"><div className="content-container how-layout"><div><p className="eyebrow">Simple by design</p><h2 id="how-heading">From link to insight<br />in three calm steps.</h2></div><ol className="steps-list"><li><span>01</span><div><h3>Paste a link</h3><p>Share any public YouTube video URL, including Shorts and embeds.</p></div></li><li><span>02</span><div><h3>Read the transcript</h3><p>Search the complete text, then copy or export it when you are ready.</p></div></li><li><span>03</span><div><h3>Keep recent work nearby</h3><p>Re-open your browser-local history whenever you need it.</p></div></li></ol></div></section>
       <section className="blog-callout content-container"><div><p className="eyebrow">From the journal</p><h2>Build a better workflow around video text.</h2><p>Read practical guides for transcript extraction, SRT editing, and content creation.</p></div><Link href="/blog" className="primary-button">Explore the blog <ArrowRight size={17} /></Link></section>
+      <DeepDive />
     </SiteShell>
   );
 }
