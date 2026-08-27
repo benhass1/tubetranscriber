@@ -63,30 +63,56 @@ export default function Transcript() {
       previousSourceUrl.current = sourceUrl;
     }
     let cancelled = false;
+    let serverSettled = false;
+    let browserAttempted = false;
+    let fallbackTimer: number | undefined;
     lookup.reset();
     browserIngest.reset();
     setBrowserData(undefined);
     setBrowserFallbackError("");
     setBrowserFallbackPending(false);
+
+    const tryBrowserFallback = async () => {
+      if (cancelled || browserAttempted) return;
+      browserAttempted = true;
+      setBrowserFallbackPending(true);
+      try {
+        const result = await fetchBrowserTranscript(sourceUrl);
+        if (cancelled) return;
+        setBrowserData(result);
+        browserIngest.mutate({ url: sourceUrl, ...result });
+      } catch (fallbackError) {
+        if (!cancelled) setBrowserFallbackError(fallbackError instanceof Error ? fallbackError.message : "Browser extraction was not available for this video.");
+      } finally {
+        if (!cancelled) setBrowserFallbackPending(false);
+      }
+    };
+
+    const markServerSettled = () => {
+      serverSettled = true;
+      if (fallbackTimer !== undefined) window.clearTimeout(fallbackTimer);
+    };
+
     lookup.mutate({ url: sourceUrl }, {
+      onSuccess: markServerSettled,
       onError: async error => {
+        markServerSettled();
         const code = error.data?.code;
         const canTryBrowserFallback = code === "TOO_MANY_REQUESTS" || code === "INTERNAL_SERVER_ERROR";
-        if (!canTryBrowserFallback) return;
-        setBrowserFallbackPending(true);
-        try {
-          const result = await fetchBrowserTranscript(sourceUrl);
-          if (cancelled) return;
-          setBrowserData(result);
-          browserIngest.mutate({ url: sourceUrl, ...result });
-        } catch (fallbackError) {
-          if (!cancelled) setBrowserFallbackError(fallbackError instanceof Error ? fallbackError.message : "Browser extraction was not available for this video.");
-        } finally {
-          if (!cancelled) setBrowserFallbackPending(false);
-        }
+        if (canTryBrowserFallback) await tryBrowserFallback();
       },
     });
-    return () => { cancelled = true; };
+
+    // Do not keep the visitor waiting for the server process timeout when a
+    // public caption track can be read directly by this browser.
+    fallbackTimer = window.setTimeout(() => {
+      if (!serverSettled) void tryBrowserFallback();
+    }, 8000);
+
+    return () => {
+      cancelled = true;
+      if (fallbackTimer !== undefined) window.clearTimeout(fallbackTimer);
+    };
   }, [sourceUrl]);
   const data = lookup.data ?? browserData;
   const effectiveError = browserFallbackError || (browserData ? "" : lookup.error?.message || "");
@@ -105,7 +131,7 @@ export default function Transcript() {
 
   if (!hasHydrated) return <SiteShell><section className="loading-page content-container"><div className="loading-orbit"><Loader2 size={28} /></div><p className="eyebrow">Reading YouTube captions</p><h1>Preparing your transcript.</h1><p>We are retrieving the video details and organizing its captions into a clean reading experience.</p></section></SiteShell>;
   if (!sourceUrl) return <SiteShell><section className="page-empty content-container"><Subtitles size={36} /><h1>No video link yet.</h1><p>Return home and paste a YouTube link to begin.</p><Link href="/" className="primary-button">Go to home</Link></section></SiteShell>;
-  if (lookup.isPending || browserFallbackPending || (!data && !effectiveError)) return <SiteShell><section className="loading-page content-container"><div className="loading-orbit"><Loader2 size={28} /></div><p className="eyebrow">Reading YouTube captions</p><h1>{browserFallbackPending ? "Trying browser extraction." : "Preparing your transcript."}</h1><p>{browserFallbackPending ? "YouTube is limiting the server request, so this browser is trying the public caption endpoint directly." : "We are retrieving the video details and organizing its captions into a clean reading experience."}</p></section></SiteShell>;
+  if ((!data && lookup.isPending && !browserFallbackError) || browserFallbackPending || (!data && !effectiveError)) return <SiteShell><section className="loading-page content-container"><div className="loading-orbit"><Loader2 size={28} /></div><p className="eyebrow">Reading YouTube captions</p><h1>{browserFallbackPending ? "Trying browser extraction." : "Preparing your transcript."}</h1><p>{browserFallbackPending ? "YouTube is limiting the server request, so this browser is trying the public caption endpoint directly." : "We are retrieving the video details and organizing its captions into a clean reading experience."}</p></section></SiteShell>;
   if (effectiveError || !data) return <SiteShell><section className="page-empty content-container"><span className="error-mark"><X size={27} /></span><p className="eyebrow">Transcript not found</p><h1>We could not retrieve captions.</h1><p>{effectiveError || "Please confirm the URL is public and try again."}</p><button className="primary-button" onClick={() => navigate("/")}>Try another link</button></section></SiteShell>;
   return <SiteShell><section className="transcript-page content-container"><Link href="/" className="back-link"><ChevronLeft size={16} /> New extraction</Link><form className="inline-extract-form" onSubmit={startAnother}><label><Link2 size={17} /><input value={nextUrl} onChange={event => setNextUrl(event.target.value)} placeholder="Paste another YouTube link to generate a new transcript" aria-label="YouTube link for another transcript" /></label><button type="submit">Generate transcript <ArrowRight size={16} /></button></form><p className="reader-action-notice" role="status" aria-live="polite">{actionNotice}</p><div className="video-summary"><img src={data.metadata.thumbnailUrl} alt={`YouTube video thumbnail for ${data.metadata.title}`} /><div><p className="eyebrow">{data.metadata.channel}</p><h1>{data.metadata.title}</h1><div className="video-meta"><span>{originalLanguage?.name || "Original language"} transcript</span><a href={`https://www.youtube.com/watch?v=${data.metadata.videoId}`} target="_blank" rel="noreferrer">Open in YouTube <ExternalLink size={13} /></a></div></div></div><div className="transcript-layout"><aside className="export-panel"><p className="panel-label">Transcript tools</p><button type="button" className="copy-button" onClick={copy} aria-pressed={copied}><span className="action-icon">{copied ? <Check size={17} /> : <Clipboard size={17} />}</span><span className="export-label">{copied ? "Copied to clipboard" : "Copy all text"}</span></button><div className="export-divider" /><p className="panel-label">Download format</p><label className="timestamp-toggle"><input type="checkbox" checked={includeTimestamps} onChange={event => setIncludeTimestamps(event.target.checked)} /> Include timestamps in TXT</label><button type="button" onClick={() => exportTranscript("Plain text", "txt", includeTimestamps ? toTxt(data.segments) : transcriptText, "text/plain;charset=utf-8")}><FileText size={16} /><span className="export-label">Plain text</span><Download size={15} /></button><button type="button" onClick={() => exportTranscript("JSON", "json", JSON.stringify({ video: data.metadata, transcript: data.segments }, null, 2), "application/json")}><FileJson size={16} /><span className="export-label">JSON data</span><Download size={15} /></button><button type="button" onClick={() => exportTranscript("SRT", "srt", toSrt(data.segments), "text/plain;charset=utf-8")}><Subtitles size={16} /><span className="export-label">SRT subtitles</span><Download size={15} /></button><button type="button" onClick={() => exportTranscript("VTT", "vtt", toVtt(data.segments), "text/vtt;charset=utf-8")}><Subtitles size={16} /><span className="export-label">VTT captions</span><Download size={15} /></button><button type="button" onClick={() => exportTranscript("Markdown", "md", includeTimestamps ? toMarkdown(data.metadata, data.segments) : `# ${data.metadata.title}\n\n_Source: ${data.metadata.channel}_\n\n${transcriptText}\n`, "text/markdown;charset=utf-8")}><FileText size={16} /><span className="export-label">Markdown</span><Download size={15} /></button><p className="copyright-note">Only download material you have the right to use. Respect the original creator and copyright.</p></aside><article className="reader-card"><div className="reader-header"><div><p className="panel-label">Full transcript</p><h2>Read the complete text</h2></div><label className="search-field"><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search transcript" aria-label="Search transcript" />{query && <button type="button" onClick={() => setQuery("")} aria-label="Clear search"><X size={14} /></button>}</label></div><div className="reader-content">{hasSearchMatch ? <p className="plain-transcript">{highlight(transcriptText, query)}</p> : <div className="no-matches"><Search size={24} /><h3>No matching words</h3><p>Try a different phrase or clear the search.</p></div>}</div></article></div></section></SiteShell>;
 }
