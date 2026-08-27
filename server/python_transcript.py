@@ -374,6 +374,14 @@ def _parse_player_response(page: str) -> dict[str, Any]:
     raise RuntimeError("Unable to parse video player data from YouTube.")
 
 
+def _extract_innertube_api_key(page: str) -> str:
+    """Extract the current public InnerTube key from a watch page."""
+    match = re.search(r'"INNERTUBE_API_KEY"\s*:\s*"([^"]+)"', page)
+    if not match:
+        raise RuntimeError("Unable to extract YouTube InnerTube API key.")
+    return match.group(1)
+
+
 def _caption_tracks(player_data: dict[str, Any]) -> list[dict[str, Any]]:
     captions = player_data.get("captions", {})
     renderer = captions.get("playerCaptionsTracklistRenderer", {}) if isinstance(captions, dict) else {}
@@ -750,6 +758,77 @@ def _fetch_innertube_transcript(video_id: str) -> list[dict[str, Any]]:
         session.close()
 
 
+def _fetch_innertube_api_key_result(video_id: str) -> TranscriptResult:
+    """Use a watch-page API key and Android player context as a final fallback.
+
+    This path is reached only after the primary catalog and InnerTube clients
+    fail. It still uses the Worker/WARP wrapper, original-language ordering,
+    and the common JSON3/XML caption parser.
+    """
+    watch_url = f"https://www.youtube.com/watch?v={video_id}"
+    session = _youtube_session()
+    try:
+        response = _youtube_request(session, "GET", watch_url, timeout=20)
+        if response.status_code == 429:
+            raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.")
+        response.raise_for_status()
+        api_key = _extract_innertube_api_key(response.text)
+
+        player_url = f"https://www.youtube.com/youtubei/v1/player?key={api_key}&prettyPrint=false"
+        player_response = _youtube_request(
+            session,
+            "POST",
+            player_url,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": "com.google.android.youtube/20.10.38 (Linux; U; Android 11)",
+            },
+            json={
+                "context": {
+                    "client": {
+                        "clientName": "ANDROID",
+                        "clientVersion": "20.10.38",
+                        "androidSdkVersion": 30,
+                        "hl": "en",
+                        "gl": "US",
+                    }
+                },
+                "videoId": video_id,
+                "params": "CgIQBg==",
+                "playbackContext": {
+                    "contentPlaybackContext": {"html5Preference": "HTML5_PREF_WANTS"}
+                },
+            },
+            timeout=20,
+        )
+        if player_response.status_code == 429:
+            raise YouTubeRateLimitError("YouTube is temporarily rate-limiting transcript requests.")
+        player_response.raise_for_status()
+        player_data = player_response.json()
+        playability = player_data.get("playabilityStatus", {}).get("status")
+        if playability in {"UNPLAYABLE", "LOGIN_REQUIRED"}:
+            raise RuntimeError("The requested video is unavailable or private.")
+
+        tracks = _caption_tracks(player_data)
+        if not tracks:
+            raise NoCaptionsError("No public captions are available for this video.")
+        token_details = _po_token_details(video_id)
+        ordered_tracks = _prioritize_original_track(tracks, _default_audio_language(player_data))
+        last_error: Exception | None = None
+        for track in [ordered_tracks[0], *_ordered_caption_tracks(ordered_tracks[1:])]:
+            try:
+                segments = _fetch_caption_track(session, track, token_details)
+                return _result(segments, tracks, ordered_tracks[0], track, [])
+            except YouTubeRateLimitError:
+                raise
+            except (requests.RequestException, CaptionPayloadError) as error:
+                last_error = error
+        raise CaptionPayloadError("YouTube returned no usable caption text.") from last_error
+    finally:
+        session.close()
+
+
 def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
     """Fetch signed caption tracks from the watch page with JSON3/XML fallback."""
     watch_url = f"https://www.youtube.com/watch?v={video_id}"
@@ -1055,9 +1134,13 @@ def _fetch_transcript_result(video_id: str) -> TranscriptResult:
     """Use the original-language catalog first, retaining the complete fallback stack."""
     try:
         return _fetch_transcript_in_language(video_id)
-    except RuntimeError as catalog_error:
+    except (RuntimeError, requests.RequestException) as catalog_error:
         try:
             return _youtube_transcript_api_fetch_result(video_id)
+        except Exception:
+            pass
+        try:
+            return _fetch_innertube_api_key_result(video_id)
         except Exception:
             pass
         try:
@@ -1067,7 +1150,9 @@ def _fetch_transcript_result(video_id: str) -> TranscriptResult:
         try:
             segments = _fetch_transcript(video_id)
         except Exception:
-            raise catalog_error
+            if isinstance(catalog_error, RuntimeError):
+                raise catalog_error
+            raise RuntimeError(f"Initial transcript extraction failed: {catalog_error}") from catalog_error
         selected = {"languageCode": "", "name": "Original language"}
         return _result(segments, [], selected, selected, [])
 
