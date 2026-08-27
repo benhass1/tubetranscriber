@@ -78,6 +78,17 @@ export default function BlogPost() {
             <p>Once your {post.keyword} process is clear, save the source link and turn the next insight into an original brief, script, or production decision.</p>
           </section>
 
+          <section className="blog-tool-links" aria-labelledby="tool-links-heading">
+            <p className="eyebrow">Useful next steps</p>
+            <h2 id="tool-links-heading">Continue with a focused caption workflow.</h2>
+            <nav aria-label="Related transcript tools">
+              <Link href="/" aria-label="Open the free YouTube transcript generator">Free YouTube transcript generator <ArrowRight size={14} /></Link>
+              <Link href="/youtube-shorts-transcript-downloader" aria-label="Download a YouTube Shorts transcript">YouTube Shorts transcript downloader <ArrowRight size={14} /></Link>
+              <Link href="/transcribe-youtube-podcast-to-srt" aria-label="Transcribe a YouTube podcast to SRT">YouTube podcast to SRT workflow <ArrowRight size={14} /></Link>
+              <Link href="/youtube-video-to-json-data" aria-label="Export YouTube captions to JSON">YouTube captions to JSON <ArrowRight size={14} /></Link>
+            </nav>
+          </section>
+
           <section className="blog-faq" aria-labelledby="faq-heading">
             <p className="eyebrow">Common questions</p>
             <h2 id="faq-heading">FAQ for creators</h2>

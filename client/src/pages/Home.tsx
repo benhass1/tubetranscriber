@@ -28,13 +28,19 @@ export default function Home() {
           <p className="eyebrow"><Sparkles size={14} /> YouTube transcript generator</p>
           <h1>Free YouTube <span>Transcript Generator</span></h1>
           <p className="hero-lede">Convert YouTube videos to searchable transcripts in seconds. Download TXT, SRT, or JSON — completely free, with no registration required.</p>
-          <form className="url-form" onSubmit={submit} noValidate>
+          <form className="url-form" onSubmit={submit} noValidate aria-label="YouTube caption extraction form">
             <div className="url-field"><Search size={19} /><input value={url} onChange={event => setUrl(event.target.value)} aria-label="YouTube video URL" placeholder="Paste a YouTube URL" autoComplete="url" /></div>
-            <button type="submit" className="primary-button">Extract transcript <ArrowRight size={18} /></button>
+            <button type="submit" className="primary-button" aria-label="Extract available YouTube captions">Extract transcript <ArrowRight size={18} aria-hidden="true" /></button>
           </form>
           {error && <p className="input-error" role="alert">{error}</p>}
           <div className="trust-row"><CheckCircle2 size={16} /><span>Supports videos, Shorts, and embed links</span><span className="trust-dot" /><span>TXT, JSON, and SRT exports</span></div>
         </div>
+      </section>
+
+      <section className="sr-only" aria-label="YouTube caption extraction topics">
+        <h2>YouTube caption extraction and accessible video text</h2>
+        <p>TubeTranscriber helps visitors extract available YouTube captions, generate SRT subtitles, read video text, and move caption content into TXT or JSON workflows.</p>
+        <nav aria-label="Caption workflow guides"><Link href="/transcribe-youtube-podcast-to-srt">Transcribe a YouTube podcast to SRT</Link><Link href="/youtube-shorts-transcript-downloader">Download a YouTube Shorts transcript</Link><Link href="/extract-lecture-captions-to-text">Extract lecture captions to text</Link><Link href="/youtube-video-to-json-data">Export YouTube captions to JSON</Link></nav>
       </section>
 
       <section className="stats-strip" aria-label="TubeTranscriber at a glance">

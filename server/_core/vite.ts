@@ -8,6 +8,8 @@ import { createServer as createViteServer } from "vite";
 import superjson from "superjson";
 import viteConfig from "../../vite.config";
 import type { HeadMeta } from "../../client/src/ssr/seo";
+import { blogPosts } from "../../client/src/pages/blogData";
+import { pseoPages } from "../../client/src/pages/pseoData";
 
 const canonicalOrigin = (process.env.CANONICAL_ORIGIN ?? "https://tubetransc-5mr8an8j.manus.space").replace(/\/$/, "");
 const siteName = "TubeTranscriber";
@@ -30,13 +32,19 @@ function headTags(head: HeadMeta) {
     `<meta name="twitter:title" content="${ogTitle}" />`, `<meta name="twitter:description" content="${ogDescription}" />`,
   ];
   if (canonical) tags.push(`<link rel="canonical" href="${escapeHtml(canonical)}" />`, `<meta property="og:url" content="${escapeHtml(canonical)}" />`);
-  if (head.jsonLd) tags.push(`<script type="application/ld+json">${JSON.stringify(head.jsonLd).replace(/</g, "\\u003c")}</script>`);
+  if (head.jsonLd) tags.push(`<script id="tube-transcriber-jsonld" type="application/ld+json">${JSON.stringify(head.jsonLd).replace(/</g, "\\u003c")}</script>`);
   return tags.join("\n");
 }
 
 function composeHtml(template: string, appHtml: string, head: HeadMeta, dehydratedState: unknown) {
   const serialized = JSON.stringify(superjson.serialize(dehydratedState)).replace(/</g, "\\u003c");
   return template.replace("<!--app-head-->", () => headTags(head)).replace("<!--app-html-->", () => appHtml).replace("</body>", () => `<script>window.__RQ_STATE__=${serialized}</script></body>`);
+}
+
+function ssrCacheControl(pathname: string) {
+  const normalized = pathname.replace(/\/+$/, "") || "/";
+  const cacheable = normalized === "/" || normalized === "/blog" || normalized.startsWith("/blog/") || pseoPages.some((page) => page.path === normalized);
+  return cacheable ? "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400" : "no-cache";
 }
 
 function crawlerFiles(app: Express) {
@@ -46,10 +54,11 @@ function crawlerFiles(app: Express) {
     const rules = namedCrawlers.map(agent => `User-agent: ${agent}\nAllow: /\nDisallow: /history\nDisallow: /transcript`).join("\n\n");
     res.type("text/plain").send(`${rules}\n\nUser-agent: *\nAllow: /\nDisallow: /history\nDisallow: /transcript${sitemap}\n`);
   });
-  app.get("/llms.txt", (_req, res) => res.type("text/plain").send(`# TubeTranscriber\n\nTubeTranscriber is a public YouTube to transcript tool and YouTube transcript generator. It can convert an available YouTube video to transcript text, making it a practical YouTube video transcript generator for reading, search, copy, and export workflows. Visitors paste a public YouTube URL and can export TXT, JSON, or SRT files. No account is required. Recent lookups are stored only in the visitor's browser.\n\n## Public pages\n\n- / — YouTube transcript generator and usage overview\n- /about — usage guide and FAQ\n- /privacy — browser-local data and privacy policy\n- /terms — responsible-use terms\n- /copyright — copyright and DMCA guidance\n- /contact — support and legal contact information\n\n## Limitations\n\nA transcript is available only when YouTube exposes captions for the requested public video. TubeTranscriber is not affiliated with YouTube or Google.\n`));
+  app.get("/llms.txt", (_req, res) => res.type("text/plain").send(`# TubeTranscriber\n\nTubeTranscriber is a public YouTube to transcript tool and YouTube transcript generator. It can convert an available YouTube video to transcript text, making it a practical YouTube video transcript generator for reading, search, copy, and export workflows. Visitors paste a public YouTube URL and can export TXT, JSON, or SRT files. No account is required. Recent lookups are stored only in the visitor's browser.\n\n## Public pages\n\n- / — YouTube transcript generator and usage overview\n- /blog — guides for YouTube caption extraction and creator workflows\n${pseoPages.map((page) => `- ${page.path} — ${page.title}`).join("\\n")}\n- /about — usage guide and FAQ\n- /privacy — browser-local data and privacy policy\n- /terms — responsible-use terms\n- /copyright — copyright and DMCA guidance\n- /contact — support and legal contact information\n\n## Limitations\n\nA transcript is available only when YouTube exposes captions for the requested public video. TubeTranscriber is not affiliated with YouTube or Google.\n`));
   app.get("/sitemap.xml", (_req, res) => {
     if (!canonicalOrigin) return res.status(404).type("text/plain").send("Configure CANONICAL_ORIGIN to enable the sitemap.");
-    const urls = ["/", "/about", "/privacy", "/terms", "/copyright", "/contact"].map(route => `<url><loc>${canonicalOrigin}${route}</loc></url>`).join("");
+    const routes = ["/", "/about", "/blog", ...blogPosts.map((post) => `/blog/${post.slug}`), ...pseoPages.map((page) => page.path), "/privacy", "/terms", "/copyright", "/contact"];
+    const urls = routes.map(route => `<url><loc>${canonicalOrigin}${route}</loc></url>`).join("");
     res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
   });
 }
@@ -67,7 +76,7 @@ export async function setupVite(app: Express, server: Server) {
       template = template.replace("</head>", `<link rel="stylesheet" href="/src/index.css?direct" data-ssr-dev-css></head>`);
       const { render } = await vite.ssrLoadModule("/src/entry-server.tsx");
       const result = await render(req.originalUrl);
-      res.status(result.head.notFound ? 404 : 200).set("Cache-Control", "no-cache").type("html").end(composeHtml(template, result.html, result.head, result.dehydratedState));
+      res.status(result.head.notFound ? 404 : 200).set("Cache-Control", ssrCacheControl(req.path)).type("html").end(composeHtml(template, result.html, result.head, result.dehydratedState));
     } catch (error) { vite.ssrFixStacktrace(error as Error); next(error); }
   });
 }
@@ -87,7 +96,7 @@ export function serveStatic(app: Express) {
       const entry = path.resolve(import.meta.dirname, "server-ssr", "entry-server.js");
       const { render } = await import(pathToFileURL(entry).href);
       const result = await render(req.originalUrl);
-      res.status(result.head.notFound ? 404 : 200).set("Cache-Control", "no-cache").type("html").end(composeHtml(template, result.html, result.head, result.dehydratedState));
+      res.status(result.head.notFound ? 404 : 200).set("Cache-Control", ssrCacheControl(req.path)).type("html").end(composeHtml(template, result.html, result.head, result.dehydratedState));
     } catch (error) {
       console.error("[SSR] render failed, serving shell:", error);
       res.status(200).set("Cache-Control", "no-cache").type("html").end(composeHtml(template, "", { title: siteName, description: defaultDescription }, {}));

@@ -14,6 +14,7 @@ import LegalPage from "./pages/LegalPage";
 import NotFound from "./pages/NotFound";
 import Transcript from "./pages/Transcript";
 import SpeedTest from "./pages/SpeedTest";
+import PseoPage from "./pages/PseoPage";
 
 const Privacy = () => <LegalPage kind="privacy" />;
 const Terms = () => <LegalPage kind="terms" />;
@@ -53,6 +54,10 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/transcript" component={Transcript} />
         <Route path="/speed-test" component={SpeedTest} />
+        <Route path="/transcribe-youtube-podcast-to-srt" component={PseoPage} />
+        <Route path="/youtube-shorts-transcript-downloader" component={PseoPage} />
+        <Route path="/extract-lecture-captions-to-text" component={PseoPage} />
+        <Route path="/youtube-video-to-json-data" component={PseoPage} />
         <Route path="/history" component={History} />
         <Route path="/about" component={About} />
         <Route path="/blog/:slug" component={BlogPost} />
