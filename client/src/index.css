@@ -920,3 +920,9 @@ body { color: var(--ink); }
 @media (max-width: 640px) {
   .hero-content > .turnstile-area { margin-top: 9px; }
 }
+.turnstile-section { width: 100%; display: flex; justify-content: center; align-items: center; margin: 12px auto 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.turnstile-section .turnstile-area { width: min(100%, 420px); min-width: 0; margin: 0; padding: 0; }
+.turnstile-section .turnstile-help { text-align: center; }
+@media (max-width: 640px) {
+  .turnstile-section { margin-top: 10px; }
+}

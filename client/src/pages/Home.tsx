@@ -38,7 +38,9 @@ export default function Home() {
             </div>
             <button type="submit" className="primary-button" aria-label="Extract available YouTube captions">Extract transcript <ArrowRight size={18} aria-hidden="true" /></button>
           </form>
-          <TurnstileWidget />
+          <div className="turnstile-section">
+            <TurnstileWidget />
+          </div>
           {error && <p className="input-error" role="alert">{error}</p>}
           <div className="trust-row"><CheckCircle2 size={16} /><span>Supports videos, Shorts, and embed links</span><span className="trust-dot" /><span>TXT, JSON, and SRT exports</span></div>
           <InteractiveDemo />
