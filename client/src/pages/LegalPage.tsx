@@ -1,5 +1,15 @@
 import SiteShell from "@/components/SiteShell";
 
+function renderLegalBody(kind: LegalKind, section: { heading: string; body: string }) {
+  if (kind === "terms" && section.heading === "Permitted use") {
+    return <>TubeTranscriber&apos;s <a href="/">free YouTube to transcript service</a> is provided to help visitors read and work with captions exposed publicly for a YouTube video. You are responsible for confirming that your use of exported material is lawful and authorized.</>;
+  }
+  if (kind === "copyright" && section.heading === "Fair Use & Accessibility") {
+    return <>Using extracted captions for personal workflow enhancement may be consistent with standard creator practices when you have the right to access and use the source material, but this is not a blanket legal determination of fair use. The <a href="/">YouTube transcript generator</a> is intended to help you review available captions, support accessibility-focused workflows, and verify the result against the original video; respect copyright, permissions, and the rules that apply to your use.</>;
+  }
+  return section.body;
+}
+
 type LegalKind = "privacy" | "terms" | "copyright" | "contact";
 
 const content: Record<LegalKind, { eyebrow: string; title: string; intro: string; sections: Array<{ heading: string; body: string }> }> = {
@@ -23,6 +33,7 @@ const content: Record<LegalKind, { eyebrow: string; title: string; intro: string
     eyebrow: "Copyright and DMCA", title: "Respect the original work.", intro: "Creators retain their rights in video content and captions. TubeTranscriber does not grant permission to copy, republish, or redistribute anyone else’s work.",
     sections: [
       { heading: "Copyright notice", body: "Exported transcripts may contain copyrighted material. Use them only where you have the required rights, permission, or a lawful basis to do so." },
+      { heading: "Fair Use & Accessibility", body: "Using extracted captions for personal workflow enhancement may be consistent with standard creator practices when you have the right to access and use the source material, but this is not a blanket legal determination of fair use." },
       { heading: "Copyright concerns", body: "If you believe that TubeTranscriber content or functionality infringes your rights, contact us with the relevant YouTube URL, a description of the concern, and a way to reach you. We will review good-faith reports promptly." },
       { heading: "Creator controls", body: "If captions are not exposed or are restricted by the source platform, TubeTranscriber will not create a transcript from that inaccessible caption track." },
     ],
@@ -39,5 +50,5 @@ const content: Record<LegalKind, { eyebrow: string; title: string; intro: string
 
 export default function LegalPage({ kind }: { kind: LegalKind }) {
   const page = content[kind];
-  return <SiteShell><section className="legal-page content-container"><p className="eyebrow">{page.eyebrow}</p><h1>{page.title}</h1><p className="legal-intro">{page.intro}</p><div className="legal-sections">{page.sections.map(section => <section key={section.heading}><h2>{section.heading}</h2><p>{section.body}</p></section>)}</div></section></SiteShell>;
+  return <SiteShell><section className="legal-page content-container"><p className="eyebrow">{page.eyebrow}</p><h1>{page.title}</h1><p className="legal-intro">{page.intro}</p><div className="legal-sections">{page.sections.map(section => <section key={section.heading}><h2>{section.heading}</h2><p>{renderLegalBody(kind, section)}</p></section>)}</div></section></SiteShell>;
 }
