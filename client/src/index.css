@@ -902,3 +902,14 @@ body { color: var(--ink); }
   .turnstile-area { min-width: 0; }
   .turnstile-area iframe { max-width: 100%; }
 }
+.url-form-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.url-form-main .url-field { min-height: 48px; }
+.url-form-main .turnstile-area { width: 100%; min-width: 0; justify-items: center; }
+@media (min-width: 641px) {
+  .url-form { align-items: center; }
+  .url-form > .primary-button { flex: 0 0 auto; }
+}
+@media (max-width: 640px) {
+  .url-form-main { width: 100%; }
+  .url-form > .primary-button { width: 100%; }
+}

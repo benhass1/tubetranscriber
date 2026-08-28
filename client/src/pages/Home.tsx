@@ -33,8 +33,10 @@ export default function Home() {
           <h1>Free YouTube <span>Transcript Generator</span></h1>
           <p className="hero-lede">Convert YouTube videos to searchable transcripts in seconds. Download TXT, SRT, or JSON — completely free, with no registration required.</p>
           <form className="url-form" onSubmit={submit} noValidate aria-label="YouTube caption extraction form">
-            <div className="url-field"><Search size={19} /><input value={url} onChange={event => setUrl(event.target.value)} aria-label="YouTube video URL" placeholder="Paste a YouTube URL" autoComplete="url" /></div>
-            <TurnstileWidget />
+            <div className="url-form-main">
+              <div className="url-field"><Search size={19} /><input value={url} onChange={event => setUrl(event.target.value)} aria-label="YouTube video URL" placeholder="Paste a YouTube URL" autoComplete="url" /></div>
+              <TurnstileWidget />
+            </div>
             <button type="submit" className="primary-button" aria-label="Extract available YouTube captions">Extract transcript <ArrowRight size={18} aria-hidden="true" /></button>
           </form>
           {error && <p className="input-error" role="alert">{error}</p>}
