@@ -63,6 +63,41 @@ export default function About() {
             </div>
           </section>
 
+          <section className="about-mission-section content-container" aria-labelledby="mission-heading">
+            <div className="about-mission-copy">
+              <p className="eyebrow">Our mission</p>
+              <h2 id="mission-heading">Make spoken knowledge easier to revisit.</h2>
+              <p>Creators, researchers, educators, and teams often discover useful ideas inside a video but need a calmer way to review them. TubeTranscriber is built around that moment: a creator-first workflow that turns public captions into readable working text without adding an account, a browser extension, or a distracting layer of software.</p>
+              <p>Our goal is practical rather than speculative. We want the path from a public YouTube link to a searchable document to feel clear, respectful, and easy to verify against the original video. The tool does not claim to repair missing captions or produce a perfect record of speech; it helps people work responsibly with the caption track that YouTube exposes.</p>
+            </div>
+            <aside className="about-mission-callout"><p className="eyebrow">A creator-first principle</p><strong>Useful text should stay easy to inspect, export, and revisit.</strong><p>That principle shapes the reader, the format choices, the browser-local history, and the visible limitations throughout the product.</p></aside>
+          </section>
+
+          <section className="about-technical-section" aria-labelledby="technical-heading">
+            <div className="content-container">
+              <div className="section-heading about-section-heading">
+                <p className="eyebrow">Technical Architecture</p>
+                <h2 id="technical-heading">A focused pipeline for public caption data.</h2>
+                <p className="section-answer">TubeTranscriber separates retrieval, normalization, presentation, and export so each stage has a clear responsibility and a clear limitation.</p>
+              </div>
+              <div className="about-technical-grid">
+                <article className="about-technical-card"><span className="about-technical-number">01</span><h3>Seamless caption track extraction</h3><p>The retrieval layer identifies a supported YouTube URL, requests the public caption track through the configured extraction paths, and preserves the original language when YouTube exposes it. When no track is available, the interface reports that limitation instead of inventing text.</p></article>
+                <article className="about-technical-card"><span className="about-technical-number">02</span><h3>Structured parsing for useful exports</h3><p>Caption events are normalized into timed segments that the reader can search and that the export layer can represent as TXT, JSON, SRT, VTT, or Markdown. The structured result can support downstream advanced NLP parsing, search, retrieval, or editorial review, while the source timing remains available for checking.</p></article>
+                <article className="about-technical-card"><span className="about-technical-number">03</span><h3>Privacy-aware creator workflows</h3><p>Recent lookup details are kept in the current browser, and the service does not require an account to begin. The workflow is intentionally small: retrieve available captions, show the provenance clearly, and let the visitor decide how to use or remove the working document.</p></article>
+              </div>
+            </div>
+          </section>
+
+          <section className="about-standards-section content-container" aria-labelledby="standards-heading">
+            <div className="section-heading about-section-heading"><p className="eyebrow">Accessibility and transcription standards</p><h2 id="standards-heading">Context matters as much as conversion.</h2></div>
+            <div className="about-standards-copy">
+              <p>Captions are an important accessibility layer because they give people another way to follow spoken information. They can support viewers who are deaf or hard of hearing, people watching without sound, people working in a second language, and anyone who needs to search a long recording instead of replaying it from the beginning. A transcript reader should therefore treat caption data as meaningful source material, not as decorative text.</p>
+              <p>TubeTranscriber preserves the available words and timing as a working representation. It does not silently present automatic captions as a certified human transcript, and it does not promise that names, numbers, accents, technical terms, speaker changes, or overlapping speech are perfectly recognized. Automatic caption tracks can contain errors. For publishing, legal, educational, or accessibility-critical use, review the exported text against the original video and follow the standards of the destination platform or institution.</p>
+              <p>Good transcription practice also includes context and attribution. Keep the source link with the working document, identify when captions are automatic if that distinction is available, and respect the creator’s copyright and terms. Use TXT when a clean reading copy is the priority, JSON when an application or advanced NLP parsing workflow needs structured segments, and SRT or VTT when timing matters for editing or playback. The format should serve the task, not conceal uncertainty.</p>
+              <p>These principles explain why the product combines seamless caption track extraction with a simple reader, browser-local history, searchable text, and explicit limitations. TubeTranscriber is an independent utility; it is not affiliated with YouTube or Google, and it cannot create captions that the source does not expose.</p>
+            </div>
+          </section>
+
           <section className="about-details-section content-container" aria-labelledby="details-heading">
             <div className="section-heading about-section-heading">
               <p className="eyebrow">Know before you start</p>

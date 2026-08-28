@@ -567,6 +567,44 @@ body { color: var(--ink); }
 }
 
 
+/* About trust and architecture sections: visible content for visitors and crawlers alike. */
+.about-mission-section { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(260px, .85fr); gap: 58px; align-items: center; padding-top: 76px; padding-bottom: 78px; }
+.about-mission-copy { max-width: 720px; }
+.about-mission-copy h2 { max-width: 700px; margin: 0; color: var(--ink); font: 800 clamp(30px, 3.8vw, 48px)/1.08 Inter, Arial, sans-serif; letter-spacing: -.055em; }
+.about-mission-copy > p:not(.eyebrow) { margin: 19px 0 0; color: var(--muted); font-size: 15px; line-height: 1.85; }
+.about-mission-callout { padding: 28px; border: 1px solid #bfdbfe; border-radius: 18px; background: linear-gradient(145deg, #eff6ff, #ffffff); box-shadow: 0 14px 30px rgba(37, 99, 235, .07); }
+.about-mission-callout .eyebrow { margin-bottom: 13px; }
+.about-mission-callout strong { display: block; color: var(--ink); font: 800 22px/1.25 Inter, Arial, sans-serif; letter-spacing: -.035em; }
+.about-mission-callout > p:last-child { margin: 14px 0 0; color: var(--muted); font-size: 13px; line-height: 1.75; }
+.about-technical-section { padding: 76px 0 82px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); }
+.about-technical-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.about-technical-card { padding: 27px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface); }
+.about-technical-number { color: var(--hot); font: 700 12px/1 "IBM Plex Mono", monospace; letter-spacing: .08em; }
+.about-technical-card h3 { margin: 24px 0 11px; color: var(--ink); font: 800 19px/1.25 Inter, Arial, sans-serif; letter-spacing: -.035em; }
+.about-technical-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.78; }
+.about-standards-section { padding-top: 78px; padding-bottom: 80px; }
+.about-standards-copy { max-width: 820px; }
+.about-standards-copy p { margin: 0 0 17px; color: var(--muted); font-size: 15px; line-height: 1.88; }
+.about-standards-copy p:last-child { margin-bottom: 0; }
+.dark .about-mission-copy h2, .dark .about-mission-callout strong, .dark .about-technical-card h3 { color: #f8fbff; }
+.dark .about-mission-copy > p:not(.eyebrow), .dark .about-mission-callout > p:last-child, .dark .about-technical-card p, .dark .about-standards-copy p { color: #cbd5e1; }
+.dark .about-mission-callout { border-color: #31445f; background: linear-gradient(145deg, #16243b, #111d32); box-shadow: 0 14px 30px rgba(0, 0, 0, .18); }
+.dark .about-technical-section { background: #111d32; }
+.dark .about-technical-card { border-color: #31445f; background: #16243b; }
+.dark .about-standards-section { background: #0b1324; }
+@media (max-width: 760px) {
+  .about-mission-section { grid-template-columns: 1fr; gap: 30px; padding-top: 54px; padding-bottom: 58px; }
+  .about-mission-copy h2 { font-size: 32px; }
+  .about-mission-copy > p:not(.eyebrow) { font-size: 14px; }
+  .about-mission-callout { padding: 23px 21px; }
+  .about-technical-section { padding: 55px 0 60px; }
+  .about-technical-grid { grid-template-columns: 1fr; }
+  .about-technical-card { padding: 22px; }
+  .about-technical-card h3 { margin-top: 19px; }
+  .about-standards-section { padding-top: 57px; padding-bottom: 60px; }
+  .about-standards-copy p { font-size: 14px; line-height: 1.82; }
+}
+
 /* Reference-inspired blog filters, kept in the TubeTranscriber light palette */
 .blog-hero-reference .blog-hero-inner { padding-top: 48px; padding-bottom: 40px; text-align: center; }
 .blog-hero-reference .eyebrow { justify-content: center; }
