@@ -878,3 +878,18 @@ body { color: var(--ink); }
 .legal-sections a:focus-visible { outline: 3px solid color-mix(in srgb, var(--hot) 42%, transparent); outline-offset: 3px; border-radius: 3px; }
 .dark .legal-sections a { color: #93c5fd; text-decoration-color: rgba(147, 197, 253, .55); }
 .dark .legal-sections a:hover { color: #dbeafe; }
+
+.loading-pulse { display: flex; align-items: center; justify-content: center; gap: 6px; height: 12px; margin: -3px 0 16px; }
+.loading-pulse span { width: 7px; height: 7px; border-radius: 50%; background: var(--hot); opacity: .35; animation: loading-bounce 1.15s ease-in-out infinite; }
+.loading-pulse span:nth-child(2) { animation-delay: .16s; background: var(--aqua); }
+.loading-pulse span:nth-child(3) { animation-delay: .32s; background: #a923e8; }
+.loading-progress { width: min(320px, 80vw); height: 5px; margin-top: 24px; overflow: hidden; border-radius: 99px; background: var(--line); }
+.loading-progress span { display: block; width: 38%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--hot), #a923e8, var(--aqua)); animation: loading-slide 1.55s ease-in-out infinite; }
+.loading-steps { display: flex; gap: 16px; justify-content: center; margin-top: 11px; color: var(--muted); font: 500 10px "DM Mono", monospace; letter-spacing: .02em; }
+.loading-steps span { transition: color .2s ease; }
+.loading-steps span.is-active { color: var(--hot); }
+.loading-steps span.is-complete { color: var(--aqua); }
+@keyframes loading-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: .35; } 30% { transform: translateY(-5px); opacity: 1; } }
+@keyframes loading-slide { 0% { transform: translateX(-130%); } 55%, 100% { transform: translateX(310%); } }
+@media (prefers-reduced-motion: reduce) { .loading-orbit svg, .loading-pulse span, .loading-progress span { animation: none; } .loading-pulse span { opacity: .75; } .loading-progress span { width: 100%; } }
+@media (max-width: 560px) { .loading-steps { gap: 9px; font-size: 9px; } .loading-progress { margin-top: 19px; } }
