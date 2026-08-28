@@ -1,4 +1,5 @@
 import SiteShell from "@/components/SiteShell";
+import TurnstileWidget from "@/components/TurnstileWidget";
 import InteractiveDemo from "@/components/InteractiveDemo";
 import DeepDive from "@/components/DeepDive";
 import { getEngineFreshnessText } from "@/lib/freshness";
@@ -33,6 +34,7 @@ export default function Home() {
           <p className="hero-lede">Convert YouTube videos to searchable transcripts in seconds. Download TXT, SRT, or JSON — completely free, with no registration required.</p>
           <form className="url-form" onSubmit={submit} noValidate aria-label="YouTube caption extraction form">
             <div className="url-field"><Search size={19} /><input value={url} onChange={event => setUrl(event.target.value)} aria-label="YouTube video URL" placeholder="Paste a YouTube URL" autoComplete="url" /></div>
+            <TurnstileWidget />
             <button type="submit" className="primary-button" aria-label="Extract available YouTube captions">Extract transcript <ArrowRight size={18} aria-hidden="true" /></button>
           </form>
           {error && <p className="input-error" role="alert">{error}</p>}

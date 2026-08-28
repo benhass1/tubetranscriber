@@ -893,3 +893,12 @@ body { color: var(--ink); }
 @keyframes loading-slide { 0% { transform: translateX(-130%); } 55%, 100% { transform: translateX(310%); } }
 @media (prefers-reduced-motion: reduce) { .loading-orbit svg, .loading-pulse span, .loading-progress span { animation: none; } .loading-pulse span { opacity: .75; } .loading-progress span { width: 100%; } }
 @media (max-width: 560px) { .loading-steps { gap: 9px; font-size: 9px; } .loading-progress { margin-top: 19px; } }
+
+.turnstile-area { display: grid; justify-items: center; gap: 6px; min-width: 300px; padding: 4px 0; }
+.turnstile-area > div { min-height: 65px; }
+.turnstile-help { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
+@media (max-width: 640px) {
+  .url-form { flex-direction: column; align-items: stretch; }
+  .turnstile-area { min-width: 0; }
+  .turnstile-area iframe { max-width: 100%; }
+}

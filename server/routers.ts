@@ -6,6 +6,7 @@ import { publicProcedure, router } from "./_core/trpc";
 import { extractTranscript, parseYoutubeId } from "./transcript";
 import { getCachedTranscript, isTranscriptCacheConfigured, setCachedTranscript } from "./transcriptCache";
 import { COOKIE_NAME } from "@shared/const";
+import { isTurnstileConfigured, verifyTurnstileToken } from "./turnstile";
 
 export const appRouter = router({
   system: systemRouter,
@@ -20,6 +21,14 @@ export const appRouter = router({
     lookup: publicProcedure.input(z.object({
       url: z.string().min(1).max(2048),
     })).mutation(async ({ input, ctx }) => {
+      if (isTurnstileConfigured()) {
+        const token = ctx.req.header("x-turnstile-token") ?? "";
+        const verified = await verifyTurnstileToken(token, ctx.req.ip);
+        if (!verified) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Please complete the security check before extracting captions." });
+        }
+      }
+
       const videoId = parseYoutubeId(input.url);
       const cacheEnabled = isTranscriptCacheConfigured();
 
