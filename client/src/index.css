@@ -933,3 +933,21 @@ body { color: var(--ink); }
   .transcript-turnstile { justify-content: center; }
   .transcript-turnstile .turnstile-help { text-align: center; }
 }
+
+/* Embedded YouTube player and synchronized transcript */
+.synced-video-section { display: grid; grid-template-columns: minmax(0, .86fr) minmax(360px, 1.14fr); gap: 24px; align-items: center; margin: 0 0 30px; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--surface) 94%, var(--soft-hot)); box-shadow: var(--shadow); }
+.synced-video-copy { padding: 8px 8px 8px 4px; }
+.synced-video-copy .panel-label { margin-bottom: 10px; color: var(--hot); }
+.synced-video-copy p:last-child { max-width: 340px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.youtube-player-shell { min-width: 0; }
+.youtube-player-frame { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 11px; background: #0f172a; }
+.youtube-player-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+.youtube-player-error { margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.synced-transcript { display: grid; gap: 0; }
+.transcript-segment { width: 100%; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 14px; padding: 13px 10px; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 72%, transparent); color: var(--ink); background: transparent; text-align: left; font-size: 14px; line-height: 1.7; transition: background .16s ease, color .16s ease; }
+.transcript-segment:hover { background: var(--soft-hot); }
+.transcript-segment.is-active { color: var(--hot-deep); background: color-mix(in srgb, var(--soft-hot) 82%, var(--surface)); }
+.segment-time { padding-top: 2px; color: var(--aqua); font: 600 10px/1.4 "DM Mono", monospace; }
+.transcript-segment mark { padding: 1px 3px; color: inherit; background: color-mix(in srgb, var(--hot) 25%, transparent); border-radius: 3px; }
+@media (max-width: 820px) { .synced-video-section { grid-template-columns: 1fr; }.synced-video-copy { padding: 0; }.synced-video-copy p:last-child { max-width: none; }.youtube-player-frame { max-width: 680px; margin: 0 auto; } }
+@media (max-width: 560px) { .synced-video-section { gap: 14px; margin-bottom: 22px; padding: 13px; border-radius: 13px; }.synced-video-copy p:last-child { font-size: 12px; }.transcript-segment { grid-template-columns: 45px minmax(0, 1fr); gap: 9px; padding: 11px 4px; font-size: 13px; } }
