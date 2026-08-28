@@ -374,6 +374,24 @@ body { color: var(--ink); }
   .speed-results-summary { margin-top: 12px; }
 }
 
+/* Speed Test internal-linking section: visible, useful, and crawlable without hidden keyword text. */
+.speed-workflow-section { margin-top: 34px; margin-bottom: 76px; padding: 30px 34px; border: 1px solid #dbeafe; border-radius: 18px; background: linear-gradient(135deg, #f8fbff, #ffffff); box-shadow: 0 12px 28px rgba(37, 99, 235, .06); }
+.speed-workflow-section .eyebrow { margin-bottom: 10px; color: #2563eb; }
+.speed-workflow-section h2 { max-width: 700px; margin: 0 0 13px; color: #0f172a; font: 800 clamp(25px, 3.5vw, 38px)/1.1 Inter, Arial, sans-serif; letter-spacing: -.045em; }
+.speed-workflow-section > p:last-child { max-width: 780px; margin: 0; color: #475569; font-size: 14px; line-height: 1.8; }
+.speed-workflow-section a { color: #1d4ed8; font-weight: 800; text-decoration: underline; text-decoration-color: rgba(37, 99, 235, .35); text-underline-offset: 3px; }
+.speed-workflow-section a:hover { color: #1e40af; text-decoration-color: currentColor; }
+.dark .speed-workflow-section { border-color: #31445f; background: linear-gradient(135deg, #16243b, #111d32); box-shadow: 0 12px 28px rgba(0, 0, 0, .18); }
+.dark .speed-workflow-section h2 { color: #f8fbff; }
+.dark .speed-workflow-section > p:last-child { color: #cbd5e1; }
+.dark .speed-workflow-section a { color: #93c5fd; text-decoration-color: rgba(147, 197, 253, .5); }
+.dark .speed-workflow-section a:hover { color: #dbeafe; }
+@media (max-width: 760px) {
+  .speed-workflow-section { margin-top: 27px; margin-bottom: 56px; padding: 24px 20px; border-radius: 15px; }
+  .speed-workflow-section h2 { font-size: 28px; }
+  .speed-workflow-section > p:last-child { font-size: 13px; line-height: 1.75; }
+}
+
 /* SEO article template: featured media, takeaways, FAQ, related content. */
 .featured-post-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .7; mix-blend-mode: screen; }
 .featured-post-art::before, .featured-post-art::after { z-index: 1; }.featured-post-art span, .featured-post-art svg { z-index: 2; }
