@@ -45,9 +45,9 @@ function highlight(text: string, term: string) {
 function TranscriptLoading({ browserFallbackPending = false }: { browserFallbackPending?: boolean }) {
   return <section className="loading-page content-container" aria-live="polite" aria-busy="true">
     <div className="loading-spinner" aria-hidden="true"><Loader2 size={34} /></div>
-    <p className="eyebrow">{browserFallbackPending ? "Browser caption check" : "Reading YouTube captions"}</p>
-    <h1>{browserFallbackPending ? "Trying browser extraction" : "Fetching YouTube captions"}</h1>
-    <p>{browserFallbackPending ? "We’re giving your browser another route to the public captions." : "We’re extracting and formatting the transcript for a clean reading experience."}</p>
+    <p className="eyebrow">{browserFallbackPending ? "Browser caption check" : "Transcript in progress"}</p>
+    <h1>Loading transcript...</h1>
+    <p>Getting YouTube captions ready...</p>
     <div className="loading-progress" role="progressbar" aria-label="Transcript retrieval in progress"><span /></div>
     <p className="loading-moment">This may take a moment<span className="loading-dots" aria-hidden="true"><i /><i /><i /></span></p>
     <div className="loading-steps" aria-hidden="true"><span className={!browserFallbackPending ? "is-active" : "is-complete"}>Connect</span><span className={!browserFallbackPending ? "is-active" : "is-complete"}>Read captions</span><span className={browserFallbackPending ? "is-active" : ""}>Format transcript</span></div>
