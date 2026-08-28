@@ -926,3 +926,10 @@ body { color: var(--ink); }
 @media (max-width: 640px) {
   .turnstile-section { margin-top: 10px; }
 }
+.transcript-turnstile { display: flex; justify-content: flex-start; width: 100%; margin: 10px 0 18px; }
+.transcript-turnstile .turnstile-area { min-width: 0; padding: 0; }
+.transcript-turnstile .turnstile-help { text-align: left; }
+@media (max-width: 640px) {
+  .transcript-turnstile { justify-content: center; }
+  .transcript-turnstile .turnstile-help { text-align: center; }
+}
