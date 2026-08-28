@@ -117,7 +117,13 @@ async function fetchMetadata(videoId: string) {
   try {
     const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`, { mode: "cors", credentials: "omit" });
     if (!response.ok) return fallback;
-    const payload = await response.json() as { title?: string; author_name?: string; thumbnail_url?: string };
+    const rawPayload = await response.text();
+    let payload: { title?: string; author_name?: string; thumbnail_url?: string };
+    try {
+      payload = JSON.parse(rawPayload) as { title?: string; author_name?: string; thumbnail_url?: string };
+    } catch {
+      return fallback;
+    }
     return { ...fallback, title: payload.title?.trim() || fallback.title, channel: payload.author_name?.trim() || fallback.channel, thumbnailUrl: payload.thumbnail_url || fallback.thumbnailUrl };
   } catch {
     return fallback;
