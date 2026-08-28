@@ -913,3 +913,10 @@ body { color: var(--ink); }
   .url-form-main { width: 100%; }
   .url-form > .primary-button { width: 100%; }
 }
+.hero-content > .turnstile-area { width: min(100%, 420px); margin: 10px auto 0; padding: 0; }
+.hero-content > .turnstile-area > div { display: flex; justify-content: center; }
+.hero-content > .turnstile-area + .input-error { margin-top: 8px; }
+.hero-content > .turnstile-area ~ .trust-row { margin-top: 10px; }
+@media (max-width: 640px) {
+  .hero-content > .turnstile-area { margin-top: 9px; }
+}

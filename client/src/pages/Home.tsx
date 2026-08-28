@@ -35,10 +35,10 @@ export default function Home() {
           <form className="url-form" onSubmit={submit} noValidate aria-label="YouTube caption extraction form">
             <div className="url-form-main">
               <div className="url-field"><Search size={19} /><input value={url} onChange={event => setUrl(event.target.value)} aria-label="YouTube video URL" placeholder="Paste a YouTube URL" autoComplete="url" /></div>
-              <TurnstileWidget />
             </div>
             <button type="submit" className="primary-button" aria-label="Extract available YouTube captions">Extract transcript <ArrowRight size={18} aria-hidden="true" /></button>
           </form>
+          <TurnstileWidget />
           {error && <p className="input-error" role="alert">{error}</p>}
           <div className="trust-row"><CheckCircle2 size={16} /><span>Supports videos, Shorts, and embed links</span><span className="trust-dot" /><span>TXT, JSON, and SRT exports</span></div>
           <InteractiveDemo />
