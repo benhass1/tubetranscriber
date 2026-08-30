@@ -47,7 +47,8 @@ async function startServer() {
   }
   // Optional shared-secret guard for the Contabo fallback instance.
   const localFallbackSecret = (process.env.LOCAL_FALLBACK_SHARED_SECRET ?? "").trim();
-  if (localFallbackSecret) {
+  const isLocalFallbackServer = process.env.LOCAL_FALLBACK_SERVER === "true";
+  if (isLocalFallbackServer && localFallbackSecret) {
     app.use("/api/trpc/transcript.lookup", (req, res, next) => {
       if (req.header("x-local-fallback-token") !== localFallbackSecret) {
         res.status(401).json({ error: "Unauthorized fallback request." });

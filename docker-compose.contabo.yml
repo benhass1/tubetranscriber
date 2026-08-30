@@ -15,3 +15,4 @@ services:
       WARP_ENABLED: "false"
       WARP_REQUIRED: "false"
       PO_TOKEN_ENABLED: "false"
+      LOCAL_FALLBACK_SERVER: "true"
