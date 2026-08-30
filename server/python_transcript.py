@@ -1117,7 +1117,7 @@ def _fetch_transcript_in_language(video_id: str) -> TranscriptResult:
     """Fetch only the caption track matching the video's original audio language."""
     try:
         return _fetch_timedtext_direct_result(video_id)
-    except RuntimeError:
+    except (RuntimeError, requests.RequestException):
         # The direct list is the fastest path. If it is blocked, use the
         # InnerTube catalog before handing control to the legacy stack.
         tracks, _translations = _discover_caption_catalog(video_id)
@@ -1159,7 +1159,7 @@ def _fetch_transcript_result(video_id: str) -> TranscriptResult:
 
 def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
     """Prefer direct timedtext, then InnerTube/page extraction, then the library."""
-    prior_errors: list[RuntimeError] = []
+    prior_errors: list[Exception] = []
     for fetcher in (_fetch_timedtext_direct, _fetch_innertube_transcript, _fetch_direct_transcript, _fetch_ytdlp_transcript):
         try:
             return fetcher(video_id)
@@ -1168,7 +1168,7 @@ def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
             # library fallback available before returning a final 429.
             prior_errors.append(error)
             continue
-        except RuntimeError as error:
+        except (RuntimeError, requests.RequestException) as error:
             prior_errors.append(error)
 
     try:
