@@ -872,6 +872,8 @@ def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
 
         tracks = _caption_tracks(player_data)
         if not tracks:
+            tracks = _caption_tracks_from_markup(response.text)
+        if not tracks:
             raise NoCaptionsError("No public captions are available for this video.")
         token_details = _po_token_details(video_id)
         last_error: Exception | None = None
