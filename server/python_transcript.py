@@ -382,6 +382,22 @@ def _extract_innertube_api_key(page: str) -> str:
     return match.group(1)
 
 
+def _caption_tracks_from_markup(page: str) -> list[dict[str, Any]]:
+    """Extract captionTracks directly when YouTube omits a parseable player marker."""
+    marker = '"captionTracks"'
+    marker_index = page.find(marker)
+    if marker_index < 0:
+        return []
+    list_start = page.find("[", marker_index + len(marker))
+    if list_start < 0:
+        return []
+    try:
+        parsed, _ = json.JSONDecoder().raw_decode(page[list_start:])
+    except json.JSONDecodeError:
+        return []
+    return [track for track in parsed if isinstance(track, dict)] if isinstance(parsed, list) else []
+
+
 def _caption_tracks(player_data: dict[str, Any]) -> list[dict[str, Any]]:
     captions = player_data.get("captions", {})
     renderer = captions.get("playerCaptionsTracklistRenderer", {}) if isinstance(captions, dict) else {}
@@ -843,7 +859,13 @@ def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
         except requests.RequestException as error:
             raise RuntimeError(f"Failed to reach YouTube page: {error}") from error
 
-        player_data = _parse_player_response(response.text)
+        try:
+            player_data = _parse_player_response(response.text)
+        except RuntimeError:
+            markup_tracks = _caption_tracks_from_markup(response.text)
+            if not markup_tracks:
+                raise
+            player_data = {"captions": {"playerCaptionsTracklistRenderer": {"captionTracks": markup_tracks}}}
         playability = player_data.get("playabilityStatus", {}).get("status")
         if playability in {"UNPLAYABLE", "LOGIN_REQUIRED"}:
             raise RuntimeError("The requested video is unavailable or private.")
