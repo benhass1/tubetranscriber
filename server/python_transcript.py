@@ -340,6 +340,20 @@ def _youtube_request(session: requests.Session, method: str, target_url: str, **
         max_retries = 2
     for attempt in range(max_retries + 1):
         response = session.request(method, request_url, **kwargs)
+        worker_response_is_empty = worker_url and not response.content
+        worker_response_is_limited = worker_url and response.status_code in {429, 500, 502, 503, 504}
+        worker_watch_has_no_tracks = worker_url and "/watch" in target_url and "captionTracks" not in response.text
+        if worker_response_is_empty or worker_response_is_limited or worker_watch_has_no_tracks:
+            direct_kwargs = dict(kwargs)
+            direct_headers = dict(headers)
+            direct_headers.pop("x-proxy-auth", None)
+            direct_kwargs["headers"] = direct_headers
+            try:
+                direct_response = session.request(method, target_url, **direct_kwargs)
+                if direct_response.content or direct_response.status_code < 400:
+                    response = direct_response
+            except requests.RequestException:
+                pass
         if response.status_code != 429 or attempt >= max_retries:
             return response
         retry_after = response.headers.get("Retry-After", "")
