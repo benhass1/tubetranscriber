@@ -340,6 +340,20 @@ def _youtube_request(session: requests.Session, method: str, target_url: str, **
         max_retries = 2
     for attempt in range(max_retries + 1):
         response = session.request(method, request_url, **kwargs)
+        worker_response_is_empty = worker_url and not response.content
+        worker_response_is_limited = worker_url and response.status_code in {429, 500, 502, 503, 504}
+        worker_watch_has_no_tracks = worker_url and "/watch" in target_url and "captionTracks" not in response.text
+        if worker_response_is_empty or worker_response_is_limited or worker_watch_has_no_tracks:
+            direct_kwargs = dict(kwargs)
+            direct_headers = dict(headers)
+            direct_headers.pop("x-proxy-auth", None)
+            direct_kwargs["headers"] = direct_headers
+            try:
+                direct_response = session.request(method, target_url, **direct_kwargs)
+                if direct_response.content or direct_response.status_code < 400:
+                    response = direct_response
+            except requests.RequestException:
+                pass
         if response.status_code != 429 or attempt >= max_retries:
             return response
         retry_after = response.headers.get("Retry-After", "")
@@ -380,6 +394,36 @@ def _extract_innertube_api_key(page: str) -> str:
     if not match:
         raise RuntimeError("Unable to extract YouTube InnerTube API key.")
     return match.group(1)
+
+
+def _caption_tracks_from_markup(page: str) -> list[dict[str, Any]]:
+    """Extract captionTracks directly when YouTube omits a parseable player marker."""
+    marker = '"captionTracks"'
+    marker_index = page.find(marker)
+    if marker_index < 0:
+        return []
+    list_start = page.find("[", marker_index + len(marker))
+    if list_start < 0:
+        return []
+    tracks: list[dict[str, Any]] = []
+    try:
+        parsed, _ = json.JSONDecoder().raw_decode(page[list_start:])
+        if isinstance(parsed, list):
+            tracks = [track for track in parsed if isinstance(track, dict)]
+    except json.JSONDecodeError:
+        pass
+    if tracks:
+        return tracks
+
+    # Last-resort extraction for pages where nested JSON is escaped or truncated.
+    for match in re.finditer(r'"baseUrl"\s*:\s*"(https://www[.]youtube[.]com/api/timedtext[^" ]+)"', page):
+        try:
+            base_url = json.loads(f'"{match.group(1)}"')
+        except json.JSONDecodeError:
+            continue
+        if base_url:
+            tracks.append({"baseUrl": base_url})
+    return tracks
 
 
 def _caption_tracks(player_data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -843,12 +887,20 @@ def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
         except requests.RequestException as error:
             raise RuntimeError(f"Failed to reach YouTube page: {error}") from error
 
-        player_data = _parse_player_response(response.text)
+        try:
+            player_data = _parse_player_response(response.text)
+        except RuntimeError:
+            markup_tracks = _caption_tracks_from_markup(response.text)
+            if not markup_tracks:
+                raise
+            player_data = {"captions": {"playerCaptionsTracklistRenderer": {"captionTracks": markup_tracks}}}
         playability = player_data.get("playabilityStatus", {}).get("status")
         if playability in {"UNPLAYABLE", "LOGIN_REQUIRED"}:
             raise RuntimeError("The requested video is unavailable or private.")
 
         tracks = _caption_tracks(player_data)
+        if not tracks:
+            tracks = _caption_tracks_from_markup(response.text)
         if not tracks:
             raise NoCaptionsError("No public captions are available for this video.")
         token_details = _po_token_details(video_id)
@@ -1117,7 +1169,7 @@ def _fetch_transcript_in_language(video_id: str) -> TranscriptResult:
     """Fetch only the caption track matching the video's original audio language."""
     try:
         return _fetch_timedtext_direct_result(video_id)
-    except RuntimeError:
+    except (RuntimeError, requests.RequestException):
         # The direct list is the fastest path. If it is blocked, use the
         # InnerTube catalog before handing control to the legacy stack.
         tracks, _translations = _discover_caption_catalog(video_id)
@@ -1159,7 +1211,7 @@ def _fetch_transcript_result(video_id: str) -> TranscriptResult:
 
 def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
     """Prefer direct timedtext, then InnerTube/page extraction, then the library."""
-    prior_errors: list[RuntimeError] = []
+    prior_errors: list[Exception] = []
     for fetcher in (_fetch_timedtext_direct, _fetch_innertube_transcript, _fetch_direct_transcript, _fetch_ytdlp_transcript):
         try:
             return fetcher(video_id)
@@ -1168,7 +1220,7 @@ def _fetch_transcript(video_id: str) -> list[dict[str, Any]]:
             # library fallback available before returning a final 429.
             prior_errors.append(error)
             continue
-        except RuntimeError as error:
+        except (RuntimeError, requests.RequestException) as error:
             prior_errors.append(error)
 
     try:
