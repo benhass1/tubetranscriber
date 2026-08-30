@@ -391,11 +391,25 @@ def _caption_tracks_from_markup(page: str) -> list[dict[str, Any]]:
     list_start = page.find("[", marker_index + len(marker))
     if list_start < 0:
         return []
+    tracks: list[dict[str, Any]] = []
     try:
         parsed, _ = json.JSONDecoder().raw_decode(page[list_start:])
+        if isinstance(parsed, list):
+            tracks = [track for track in parsed if isinstance(track, dict)]
     except json.JSONDecodeError:
-        return []
-    return [track for track in parsed if isinstance(track, dict)] if isinstance(parsed, list) else []
+        pass
+    if tracks:
+        return tracks
+
+    # Last-resort extraction for pages where nested JSON is escaped or truncated.
+    for match in re.finditer(r'"baseUrl"\s*:\s*"(https://www[.]youtube[.]com/api/timedtext[^" ]+)"', page):
+        try:
+            base_url = json.loads(f'"{match.group(1)}"')
+        except json.JSONDecodeError:
+            continue
+        if base_url:
+            tracks.append({"baseUrl": base_url})
+    return tracks
 
 
 def _caption_tracks(player_data: dict[str, Any]) -> list[dict[str, Any]]:
