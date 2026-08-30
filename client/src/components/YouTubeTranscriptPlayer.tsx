@@ -6,7 +6,7 @@ export interface YouTubeTranscriptPlayerHandle {
 
 interface YouTubeTranscriptPlayerProps {
   videoId: string;
-  onTimeUpdate: (seconds: number) => void;
+  onTimeUpdate?: (seconds: number) => void;
 }
 
 type YouTubePlayerInstance = {
@@ -60,8 +60,8 @@ function loadYouTubeApi() {
 
 const YouTubeTranscriptPlayer = forwardRef<YouTubeTranscriptPlayerHandle, YouTubeTranscriptPlayerProps>(function YouTubeTranscriptPlayer({ videoId, onTimeUpdate }, ref) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<YouTubePlayerInstance>();
-  const pollRef = useRef<number>();
+  const playerRef = useRef<YouTubePlayerInstance | null>(null);
+  const pollRef = useRef<number | undefined>(undefined);
   const [loadError, setLoadError] = useState("");
 
   useImperativeHandle(ref, () => ({
@@ -79,7 +79,7 @@ const YouTubeTranscriptPlayer = forwardRef<YouTubeTranscriptPlayerHandle, YouTub
           onReady: () => {
             pollRef.current = window.setInterval(() => {
               const seconds = playerRef.current?.getCurrentTime?.();
-              if (typeof seconds === "number") onTimeUpdate(seconds);
+              if (typeof seconds === "number") onTimeUpdate?.(seconds);
             }, 250);
           },
         },
@@ -92,7 +92,7 @@ const YouTubeTranscriptPlayer = forwardRef<YouTubeTranscriptPlayerHandle, YouTub
       cancelled = true;
       if (pollRef.current) window.clearInterval(pollRef.current);
       playerRef.current?.destroy?.();
-      playerRef.current = undefined;
+      playerRef.current = null;
     };
   }, [videoId, onTimeUpdate]);
 

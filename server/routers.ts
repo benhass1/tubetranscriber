@@ -56,6 +56,35 @@ export const appRouter = router({
       }
       return result;
     }),
+    localFallback: publicProcedure.input(z.object({
+      url: z.string().min(1).max(2048),
+    })).mutation(async ({ input }) => {
+      const fallbackUrl = (process.env.LOCAL_FALLBACK_URL ?? "").trim().replace(/\/$/, "");
+      const sharedSecret = (process.env.LOCAL_FALLBACK_SHARED_SECRET ?? "").trim();
+      if (!fallbackUrl || !sharedSecret) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The Contabo fallback is not configured." });
+      }
+      try {
+        const response = await fetch(`${fallbackUrl}/api/trpc/transcript.lookup?batch=1`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-local-fallback-token": sharedSecret },
+          body: JSON.stringify({ 0: { json: { url: input.url } } }),
+        });
+        const raw = await response.text();
+        if (!response.ok) throw new Error(`Contabo fallback returned HTTP ${response.status}.`);
+        const payload = JSON.parse(raw) as Array<{ result?: { data?: { json?: unknown } }; error?: { json?: { message?: string } } }>;
+        const first = payload[0];
+        if (first?.error) throw new Error(first.error.json?.message || "The Contabo fallback could not retrieve captions.");
+        const result = first?.result?.data?.json;
+        if (!result || typeof result !== "object" || !Array.isArray((result as { segments?: unknown }).segments)) {
+          throw new Error("The Contabo fallback returned no readable transcript.");
+        }
+        return result;
+      } catch (error) {
+        console.warn("[ContaboFallback] request failed", error instanceof Error ? error.message : "unknown error");
+        throw new TRPCError({ code: "BAD_GATEWAY", message: "The Contabo fallback could not retrieve captions." });
+      }
+    }),
     ingestBrowser: publicProcedure.input(z.object({
       url: z.string().min(1).max(2048),
       metadata: z.object({

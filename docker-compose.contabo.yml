@@ -1,0 +1,17 @@
+services:
+  tubetranscriber-fallback:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tubetranscriber-fallback
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env.contabo
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      WARP_ENABLED: "false"
+      WARP_REQUIRED: "false"
+      PO_TOKEN_ENABLED: "false"
