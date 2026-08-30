@@ -153,7 +153,7 @@ export default function Transcript() {
     setRetryNonce(value => value + 1);
   };
   const data = lookup.data ?? browserData;
-  const effectiveError = pcFallbackError || contaboFallbackError || browserFallbackError || (browserData ? "" : lookup.error?.message || "");
+  const effectiveError = data ? "" : (pcFallbackError || contaboFallbackError || browserFallbackError || lookup.error?.message || "");
   const transcriptText = data ? plainTranscript(data.segments) : "";
   const originalLanguage = data?.originalLanguage;
   const hasSearchMatch = !query.trim() || transcriptText.toLowerCase().includes(query.toLowerCase());
