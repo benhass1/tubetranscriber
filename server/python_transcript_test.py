@@ -80,6 +80,23 @@ class TranscriptBridgeTests(unittest.TestCase):
         self.assertNotIn("cookiefile", options)
         self.assertEqual(options["proxy"], "http://127.0.0.1:9091")
 
+    def test_worker_http_error_falls_through_to_direct_proxy(self):
+        session = FakeSession()
+        responses = [FakeResponse(text="worker error", status_code=400), FakeResponse(text="direct ok", status_code=200)]
+        with patch.dict(
+            os.environ,
+            {
+                "CF_WORKER_PROXY": "https://worker.example/proxy",
+                "CF_WORKER_AUTH_TOKEN": "test-token",
+                "YOUTUBE_PROXY_URL": "http://127.0.0.1:8080",
+            },
+            clear=False,
+        ), patch.object(session, "request", side_effect=responses) as request:
+            response = bridge._youtube_request(session, "GET", "https://www.youtube.com/watch?v=abc")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(request.call_count, 2)
+        self.assertEqual(request.call_args_list[1].kwargs["proxies"], {"http": "http://127.0.0.1:8080", "https": "http://127.0.0.1:8080"})
+
     def test_worker_target_and_auth_header(self):
         with patch.dict(
             os.environ,

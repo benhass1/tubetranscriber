@@ -354,9 +354,9 @@ def _youtube_request(session: requests.Session, method: str, target_url: str, **
     for attempt in range(max_retries + 1):
         response = session.request(method, request_url, **request_kwargs)
         worker_response_is_empty = worker_url and not response.content
-        worker_response_is_limited = worker_url and response.status_code in {429, 500, 502, 503, 504}
+        worker_response_is_error = worker_url and response.status_code >= 400
         worker_watch_has_no_tracks = worker_url and "/watch" in target_url and "captionTracks" not in response.text
-        if worker_response_is_empty or worker_response_is_limited or worker_watch_has_no_tracks:
+        if worker_response_is_empty or worker_response_is_error or worker_watch_has_no_tracks:
             direct_kwargs = dict(kwargs)
             if configured_proxy and _is_youtube_host(target_url):
                 direct_kwargs["proxies"] = {"http": configured_proxy, "https": configured_proxy}
