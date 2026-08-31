@@ -16,3 +16,7 @@ services:
       WARP_REQUIRED: "false"
       PO_TOKEN_ENABLED: "false"
       LOCAL_FALLBACK_SERVER: "true"
+      # Optional: set only on Contabo; never commit cookie contents.
+      YTDLP_COOKIES_FILE: "${YTDLP_COOKIES_FILE:-}"
+      YTDLP_PROXY_URL: "${YTDLP_PROXY_URL:-}"
+      YOUTUBE_PROXY_URL: "${YOUTUBE_PROXY_URL:-}"

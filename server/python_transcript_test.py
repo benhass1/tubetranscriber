@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -12,6 +13,7 @@ import python_transcript as bridge
 class FakeResponse:
     def __init__(self, text="", status_code=200, payload=None, headers=None):
         self.text = text
+        self.content = text.encode() if text else (json.dumps(payload).encode() if payload is not None else b"")
         self.status_code = status_code
         self.headers = headers or {}
         self._payload = payload
@@ -50,6 +52,34 @@ class TranscriptBridgeTests(unittest.TestCase):
         self.assertEqual(request.call_count, 3)
         self.assertEqual([call.args[0] for call in sleep.call_args_list], [0.75, 1.5])
 
+    def test_ytdlp_options_accept_optional_cookie_file_and_proxy(self):
+        with tempfile.NamedTemporaryFile() as cookie_file, patch.dict(
+            os.environ,
+            {
+                "YTDLP_COOKIES_FILE": cookie_file.name,
+                "YTDLP_PROXY_URL": "socks5h://127.0.0.1:1080",
+                "WARP_HTTP_PROXY": "http://127.0.0.1:9091",
+            },
+            clear=False,
+        ):
+            options = bridge._yt_dlp_options(["all"])
+        self.assertEqual(options["cookiefile"], cookie_file.name)
+        self.assertEqual(options["proxy"], "socks5h://127.0.0.1:1080")
+
+    def test_ytdlp_options_falls_back_to_existing_warp_when_optional_proxy_absent(self):
+        with patch.dict(
+            os.environ,
+            {
+                "YTDLP_COOKIES_FILE": "",
+                "YTDLP_PROXY_URL": "",
+                "WARP_HTTP_PROXY": "http://127.0.0.1:9091",
+            },
+            clear=False,
+        ):
+            options = bridge._yt_dlp_options(["en"])
+        self.assertNotIn("cookiefile", options)
+        self.assertEqual(options["proxy"], "http://127.0.0.1:9091")
+
     def test_worker_target_and_auth_header(self):
         with patch.dict(
             os.environ,
@@ -61,7 +91,7 @@ class TranscriptBridgeTests(unittest.TestCase):
         ):
             self.assertIn("url=https%3A%2F%2Fwww.youtube.com%2Fwatch", bridge._worker_target_url("https://www.youtube.com/watch?v=abc"))
             session = FakeSession()
-            with patch.object(session, "request", return_value=FakeResponse()) as request:
+            with patch.object(session, "request", return_value=FakeResponse(text="captionTracks")) as request:
                 bridge._youtube_request(session, "GET", "https://www.youtube.com/watch?v=abc")
             self.assertEqual(request.call_args.kwargs["headers"]["x-proxy-auth"], "test-token")
 

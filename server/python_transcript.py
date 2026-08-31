@@ -198,12 +198,14 @@ def extract_video_id(url_or_id: str) -> str:
 
 
 def _proxy_mapping() -> dict[str, str] | None:
-    """Return the local WARP HTTP proxy for both HTTP and HTTPS requests."""
+    """Return an explicitly configured YouTube proxy, otherwise the WARP proxy."""
+    configured_proxy = os.getenv("YOUTUBE_PROXY_URL", "").strip()
     warp_proxy = os.getenv("WARP_HTTP_PROXY", "").strip()
     if os.getenv("WARP_ENABLED", "").strip().lower() == "true" and not warp_proxy:
         warp_proxy = "http://127.0.0.1:9091"
-    if warp_proxy:
-        return {"http": warp_proxy, "https": warp_proxy}
+    proxy = configured_proxy or warp_proxy
+    if proxy:
+        return {"http": proxy, "https": proxy}
 
     # Cloudflare Worker requests are wrapped explicitly by _youtube_request;
     # they are not HTTP CONNECT proxies and must not be passed to requests'
@@ -916,15 +918,13 @@ def _fetch_direct_transcript(video_id: str) -> list[dict[str, Any]]:
         raise CaptionPayloadError("YouTube returned no usable caption text.") from last_error
 
 
-def _fetch_ytdlp_transcript_result(video_id: str) -> TranscriptResult:
-    """Use yt-dlp metadata while preserving source and available caption languages."""
-    if yt_dlp is None:
-        raise YtDlpUnavailableError("yt-dlp is not installed.")
+def _yt_dlp_options(subtitles_languages: list[str]) -> dict[str, Any]:
+    """Build bounded, optional yt-dlp settings without exposing credentials."""
     options: dict[str, Any] = {
         "skip_download": True,
         "writesubtitles": True,
         "writeautomaticsub": True,
-        "subtitleslangs": ["all"],
+        "subtitleslangs": subtitles_languages,
         "quiet": True,
         "no_warnings": True,
         "ignoreconfig": True,
@@ -934,9 +934,24 @@ def _fetch_ytdlp_transcript_result(video_id: str) -> TranscriptResult:
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
     }
-    warp_proxy = os.getenv("WARP_HTTP_PROXY", "").strip()
-    if warp_proxy:
-        options["proxy"] = warp_proxy
+    cookie_file = os.getenv("YTDLP_COOKIES_FILE", "").strip()
+    if cookie_file and os.path.isfile(cookie_file):
+        options["cookiefile"] = cookie_file
+    proxy_url = (
+        os.getenv("YTDLP_PROXY_URL", "").strip()
+        or os.getenv("YOUTUBE_PROXY_URL", "").strip()
+        or os.getenv("WARP_HTTP_PROXY", "").strip()
+    )
+    if proxy_url:
+        options["proxy"] = proxy_url
+    return options
+
+
+def _fetch_ytdlp_transcript_result(video_id: str) -> TranscriptResult:
+    """Use yt-dlp metadata while preserving source and available caption languages."""
+    if yt_dlp is None:
+        raise YtDlpUnavailableError("yt-dlp is not installed.")
+    options = _yt_dlp_options(["all"])
     try:
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
@@ -1004,23 +1019,7 @@ def _fetch_ytdlp_transcript(video_id: str) -> list[dict[str, Any]]:
     if yt_dlp is None:
         raise YtDlpUnavailableError("yt-dlp is not installed.")
 
-    options: dict[str, Any] = {
-        "skip_download": True,
-        "writesubtitles": True,
-        "writeautomaticsub": True,
-        "subtitleslangs": ["en", "en-US", "en-GB"],
-        "quiet": True,
-        "no_warnings": True,
-        "ignoreconfig": True,
-        "http_headers": {
-            "User-Agent": YOUTUBE_USER_AGENT,
-            "Accept-Language": "en-US,en;q=0.9",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        },
-    }
-    warp_proxy = os.getenv("WARP_HTTP_PROXY", "").strip()
-    if warp_proxy:
-        options["proxy"] = warp_proxy
+    options = _yt_dlp_options(["en", "en-US", "en-GB"])
 
     try:
         with yt_dlp.YoutubeDL(options) as ydl:
