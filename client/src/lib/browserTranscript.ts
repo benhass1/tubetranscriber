@@ -19,6 +19,18 @@ type CaptionTrack = {
   name?: string;
 };
 
+const BROWSER_FETCH_TIMEOUT_MS = 12000;
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}) {
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), BROWSER_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
+}
+
 function videoIdFromInput(value: string) {
   const candidate = value.trim();
   if (/^[a-zA-Z0-9_-]{11}$/.test(candidate)) return candidate;
@@ -88,7 +100,7 @@ function parseXml(payload: string): TranscriptSegment[] {
 }
 
 async function fetchTracks(videoId: string) {
-  const response = await fetch(`https://www.youtube.com/api/timedtext?type=list&v=${encodeURIComponent(videoId)}`, {
+  const response = await fetchWithTimeout(`https://www.youtube.com/api/timedtext?type=list&v=${encodeURIComponent(videoId)}`, {
     mode: "cors",
     credentials: "omit",
     headers: { Accept: "application/xml,text/xml,*/*" },
@@ -115,7 +127,7 @@ async function fetchMetadata(videoId: string) {
     durationSeconds: null,
   };
   try {
-    const response = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`, { mode: "cors", credentials: "omit" });
+    const response = await fetchWithTimeout(`https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`, { mode: "cors", credentials: "omit" });
     if (!response.ok) return fallback;
     const rawPayload = await response.text();
     let payload: { title?: string; author_name?: string; thumbnail_url?: string };
@@ -138,7 +150,7 @@ export async function fetchBrowserTranscript(sourceUrl: string): Promise<Browser
 
   const originalTrack = chooseTrack(tracks) ?? tracks[0];
   for (const track of [originalTrack, ...tracks.filter(track => track !== originalTrack)]) {
-    const response = await fetch(buildBrowserCaptionUrl(videoId, track), { mode: "cors", credentials: "omit", headers: { Accept: "application/json,application/xml,text/xml,*/*" } });
+    const response = await fetchWithTimeout(buildBrowserCaptionUrl(videoId, track), { mode: "cors", credentials: "omit", headers: { Accept: "application/json,application/xml,text/xml,*/*" } });
     if (!response.ok) continue;
     const payload = await response.text();
     const segments = parseBrowserJson3(payload);

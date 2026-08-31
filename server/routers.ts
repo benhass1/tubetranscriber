@@ -100,17 +100,22 @@ export const appRouter = router({
   }),
 });
 
+const FALLBACK_RELAY_TIMEOUT_MS = 25000;
+
 async function relayToFallback(url: string, endpointVariable: string, secretVariable: string, label: string) {
   const fallbackUrl = (process.env[endpointVariable] ?? "").trim().replace(/\/$/, "");
   const sharedSecret = (process.env[secretVariable] ?? "").trim();
   if (!fallbackUrl || !sharedSecret) {
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: `The ${label} fallback is not configured.` });
   }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FALLBACK_RELAY_TIMEOUT_MS);
   try {
     const response = await fetch(`${fallbackUrl}/api/trpc/transcript.lookup?batch=1`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-local-fallback-token": sharedSecret },
       body: JSON.stringify({ 0: { json: { url } } }),
+      signal: controller.signal,
     });
     const raw = await response.text();
     if (!response.ok) throw new Error(`${label} fallback returned HTTP ${response.status}.`);
@@ -125,6 +130,8 @@ async function relayToFallback(url: string, endpointVariable: string, secretVari
   } catch (error) {
     console.warn(`[${label}Fallback] request failed`, error instanceof Error ? error.message : "unknown error");
     throw new TRPCError({ code: "BAD_GATEWAY", message: `The ${label} fallback could not retrieve captions.` });
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

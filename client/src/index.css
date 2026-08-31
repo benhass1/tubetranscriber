@@ -1090,3 +1090,15 @@ body { color: var(--ink); }
   .synced-video-section .synced-video-copy { width: 100%; }
   .youtube-player-frame { aspect-ratio: 16 / 9; }
 }
+
+
+/* Keep the primary copy action readable in every theme. */
+.export-panel .copy-button,
+.export-panel .copy-button .export-label,
+.export-panel .copy-button .action-icon { color: #fff !important; }
+.export-panel .copy-button { background: #2563eb !important; }
+.dark .export-panel .copy-button { background: #2563eb !important; }
+
+@media (max-width: 760px) {
+  .transcript-layout { scroll-margin-top: 78px; }
+}
