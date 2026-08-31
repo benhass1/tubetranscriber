@@ -287,9 +287,11 @@ def _youtube_session() -> requests.Session:
             "Upgrade-Insecure-Requests": "1",
         }
     )
-    proxies = _proxy_mapping()
-    if proxies:
-        session.proxies.update(proxies)
+    warp_proxy = os.getenv("WARP_HTTP_PROXY", "").strip()
+    if os.getenv("WARP_ENABLED", "").strip().lower() == "true" and not warp_proxy:
+        warp_proxy = "http://127.0.0.1:9091"
+    if warp_proxy:
+        session.proxies.update({"http": warp_proxy, "https": warp_proxy})
     cookie_file = _youtube_cookie_file()
     if cookie_file:
         try:
@@ -323,6 +325,11 @@ def _worker_target_url(target_url: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
+def _is_youtube_host(url: str) -> bool:
+    host = (urlsplit(url).hostname or "").lower().rstrip(".")
+    return host == "youtube.com" or host.endswith(".youtube.com") or host.endswith(".googlevideo.com") or host.endswith(".ytimg.com")
+
+
 def _youtube_request(session: requests.Session, method: str, target_url: str, **kwargs: Any) -> requests.Response:
     """Send a YouTube request with a small, bounded 429 retry window."""
     worker_url = _worker_proxy_url()
@@ -335,18 +342,24 @@ def _youtube_request(session: requests.Session, method: str, target_url: str, **
     else:
         request_url = target_url
     kwargs["headers"] = headers
+    configured_proxy = os.getenv("YOUTUBE_PROXY_URL", "").strip()
+    request_kwargs = dict(kwargs)
+    if configured_proxy and _is_youtube_host(request_url):
+        request_kwargs["proxies"] = {"http": configured_proxy, "https": configured_proxy}
 
     try:
         max_retries = max(0, min(2, int(os.getenv("YOUTUBE_429_RETRIES", "2"))))
     except ValueError:
         max_retries = 2
     for attempt in range(max_retries + 1):
-        response = session.request(method, request_url, **kwargs)
+        response = session.request(method, request_url, **request_kwargs)
         worker_response_is_empty = worker_url and not response.content
         worker_response_is_limited = worker_url and response.status_code in {429, 500, 502, 503, 504}
         worker_watch_has_no_tracks = worker_url and "/watch" in target_url and "captionTracks" not in response.text
         if worker_response_is_empty or worker_response_is_limited or worker_watch_has_no_tracks:
             direct_kwargs = dict(kwargs)
+            if configured_proxy and _is_youtube_host(target_url):
+                direct_kwargs["proxies"] = {"http": configured_proxy, "https": configured_proxy}
             direct_headers = dict(headers)
             direct_headers.pop("x-proxy-auth", None)
             direct_kwargs["headers"] = direct_headers
