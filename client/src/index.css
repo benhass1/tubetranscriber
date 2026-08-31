@@ -1081,3 +1081,12 @@ body { color: var(--ink); }
   .format-download-list.is-open { display: block; }
   .format-download-list .panel-label { margin-bottom: 9px; }
 }
+
+
+/* Compact phone player so Copy all text and Full transcript enter the initial view. */
+@media (max-width: 560px) {
+  .synced-video-section { align-items: center; }
+  .synced-video-section .youtube-player-shell { width: min(100%, 286px); margin-inline: auto; }
+  .synced-video-section .synced-video-copy { width: 100%; }
+  .youtube-player-frame { aspect-ratio: 16 / 9; }
+}
