@@ -980,3 +980,20 @@ body { color: var(--ink); }
 @keyframes transcript-progress { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(250%); } }
 @media (prefers-reduced-motion: reduce) { .loading-spinner svg, .loading-dots i, .loading-page .loading-progress span { animation: none; }.loading-page .loading-progress span { width: 100%; } }
 @media (max-width: 560px) { .loading-page, .transcript-error-page { min-height: 460px; padding: 48px 16px 62px; }.loading-page h1, .transcript-error-page h1 { font-size: 35px; }.loading-page > p:not(.eyebrow):not(.loading-moment), .error-lead { font-size: 14px; }.error-actions { width: 100%; flex-direction: column; }.error-actions .primary-button, .error-actions .secondary-button { width: min(100%, 280px); }.error-tip { max-width: 300px; line-height: 1.6; } }
+
+
+/* Transcript result focus and mobile reading order. */
+.synced-video-section { scroll-margin-top: 92px; }
+@media (max-width: 760px) {
+  .synced-video-section { scroll-margin-top: 78px; }
+  .synced-video-section .youtube-player-shell { order: 1; }
+  .synced-video-section .synced-video-copy { order: 2; }
+  .transcript-layout { gap: 16px; }
+  .export-panel { order: 1; }
+  .reader-card { order: 2; }
+  .export-panel .copy-button { min-height: 52px; margin-bottom: 19px; }
+  .export-panel .export-divider { margin: 20px 0 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .synced-video-section { scroll-margin-top: 78px; }
+}
