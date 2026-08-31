@@ -997,3 +997,33 @@ body { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   .synced-video-section { scroll-margin-top: 78px; }
 }
+
+
+/* Mobile transcript controls: clear button rows with the reference hierarchy. */
+@media (max-width: 760px) {
+  .transcript-page { padding-top: 20px; }
+  .synced-video-section { display: flex; flex-direction: column; align-items: stretch; gap: 11px; padding: 12px; }
+  .synced-video-section .youtube-player-shell { width: 100%; order: 1; }
+  .synced-video-section .synced-video-copy { order: 2; padding: 0 4px 2px; }
+  .youtube-player-frame { width: 100%; max-width: none; }
+  .transcript-layout { gap: 12px; }
+  .export-panel { padding: 14px; border-radius: 14px; }
+  .export-panel .copy-button { width: 100%; min-height: 52px; margin-bottom: 15px; border-radius: 10px; }
+  .export-panel > button:not(.copy-button) {
+    min-height: 43px;
+    margin-top: 7px;
+    padding: 0 11px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--ink);
+    background: var(--surface);
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--ink) 5%, transparent);
+  }
+  .export-panel > button:not(.copy-button):hover { color: var(--hot-deep); border-color: color-mix(in srgb, var(--hot) 45%, var(--line)); background: var(--soft-hot); }
+  .export-panel > button:not(.copy-button) svg:last-child { margin-left: auto; }
+  .export-panel .timestamp-toggle { min-height: 36px; display: flex; align-items: center; gap: 8px; margin: 0 0 2px; padding: 0 2px; color: var(--ink); font-size: 12px; line-height: 1.35; }
+  .export-panel .timestamp-toggle input { flex: 0 0 auto; accent-color: var(--hot); }
+  .reader-card { border-radius: 14px; }
+  .reader-header { padding: 18px 16px 14px; }
+  .reader-content { padding: 12px 16px 20px; }
+}
