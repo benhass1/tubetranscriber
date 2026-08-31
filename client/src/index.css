@@ -1050,3 +1050,34 @@ body { color: var(--ink); }
   .reader-content { padding: 9px 14px 17px; }
   .plain-transcript { font-size: 14px; line-height: 1.65; }
 }
+
+
+/* Compact mobile format menu keeps Full transcript immediately below Copy all text. */
+.format-toggle { display: none; }
+.format-download-list { display: block; }
+@media (max-width: 760px) {
+  .export-panel .export-divider { display: none; }
+  .format-toggle {
+    width: 100%;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--ink);
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .format-toggle > span { display: inline-flex; align-items: center; gap: 8px; }
+  .format-toggle > svg { color: var(--hot); transition: transform .18s ease; }
+  .format-toggle[aria-expanded="true"] > svg { transform: rotate(180deg); }
+  .format-toggle:hover { color: var(--hot-deep); border-color: color-mix(in srgb, var(--hot) 45%, var(--line)); background: var(--soft-hot); }
+  .format-download-list { display: none; margin-top: 13px; }
+  .format-download-list.is-open { display: block; }
+  .format-download-list .panel-label { margin-bottom: 9px; }
+}
