@@ -59,9 +59,6 @@ export const appRouter = router({
     localFallback: publicProcedure.input(z.object({
       url: z.string().min(1).max(2048),
     })).mutation(async ({ input }) => relayToFallback(input.url, "LOCAL_FALLBACK_URL", "LOCAL_FALLBACK_SHARED_SECRET", "Contabo")),
-    pcFallback: publicProcedure.input(z.object({
-      url: z.string().min(1).max(2048),
-    })).mutation(async ({ input }) => relayToFallback(input.url, "PC_FALLBACK_URL", "PC_FALLBACK_SHARED_SECRET", "PC")),
     ingestBrowser: publicProcedure.input(z.object({
       url: z.string().min(1).max(2048),
       metadata: z.object({
