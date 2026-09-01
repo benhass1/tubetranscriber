@@ -329,8 +329,7 @@ async function transcriptRoute(request, env) {
   if (!allowMiss(ip)) return jsonResponse(request, { error: "Too many requests. Try again in a minute." }, 429, { "retry-after": "60" });
 
   const watch = await fetchWatchMarkup(videoId);
-  if (!watch.response || !watch.response.ok || !watch.markup) return stageError(request, "transcript unavailable", 502, "watch-fetch");
-  const markup = watch.markup;
+  const markup = watch.markup || "";
 
   let player = extractAssignedJson(markup, "ytInitialPlayerResponse");
   let initialData = extractAssignedJson(markup, "ytInitialData");
@@ -343,6 +342,9 @@ async function transcriptRoute(request, env) {
       tracks = captionTracks(player);
       playability = player?.playabilityStatus?.status;
     }
+  }
+  if (!watch.response || !watch.response.ok || !watch.markup) {
+    if (!tracks.length) return stageError(request, "transcript unavailable", 502, "watch-fetch");
   }
   if (["LOGIN_REQUIRED", "UNPLAYABLE", "ERROR"].includes(playability)) return stageError(request, "Private, age-restricted, or unplayable video.", 422, "player-playability");
   if (!tracks.length) return stageError(request, "No captions available for this video.", 404, "caption-tracks");
