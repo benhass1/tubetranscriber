@@ -100,24 +100,28 @@ function extractConfigValue(markup, name) {
 async function fetchAndroidPlayer(videoId, markup, env) {
   const key = extractConfigValue(markup, "INNERTUBE_API_KEY") || String(env.YOUTUBE_PLAYER_API_KEY || "").trim();
   if (!key) return null;
-  try {
-    const response = await fetch(`https://www.youtube.com/youtubei/v1/player?key=${encodeURIComponent(key)}`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "user-agent": "com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip",
-        "accept-language": "en-US,en;q=0.9",
-      },
-      body: JSON.stringify({
-        context: { client: { clientName: "ANDROID", clientVersion: "20.10.38", androidSdkVersion: 30, hl: "en", gl: "US" } },
-        videoId,
-      }),
-    });
-    if (!response.ok) return null;
-    return await response.json().catch(() => null);
-  } catch {
-    return null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(`https://www.youtube.com/youtubei/v1/player?key=${encodeURIComponent(key)}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip",
+          "accept-language": "en-US,en;q=0.9",
+        },
+        body: JSON.stringify({
+          context: { client: { clientName: "ANDROID", clientVersion: "20.10.38", androidSdkVersion: 30, hl: "en", gl: "US" } },
+          videoId,
+        }),
+      });
+      if (!response.ok) continue;
+      const payload = await response.json().catch(() => null);
+      if (payload) return payload;
+    } catch {
+      // Retry once for a transient Cloudflare-to-YouTube connection failure.
+    }
   }
+  return null;
 }
 
 function captionTracks(player) {
