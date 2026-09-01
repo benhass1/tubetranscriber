@@ -8,9 +8,12 @@ declare global {
         callback?: (token: string) => void;
         "expired-callback"?: () => void;
         "error-callback"?: () => void;
+        "timeout-callback"?: () => void;
+        execution?: "render" | "execute";
         theme?: "light" | "dark" | "auto";
       }) => string;
       reset: (widgetId?: string) => void;
+      ready?: (callback: () => void) => void;
     };
     __CF_TURNSTILE_SITE_KEY__?: string;
   }
@@ -78,14 +81,21 @@ export default function TurnstileWidget() {
     const renderWidget = () => {
       if (cancelled || !containerRef.current || !window.turnstile) return false;
       if (containerRef.current.childElementCount > 0) return true;
-      widgetIdRef.current = window.turnstile.render(containerRef.current, {
-        sitekey: siteKey,
-        theme: "auto",
-        callback: saveTurnstileToken,
-        "expired-callback": clearTurnstileToken,
-        "error-callback": clearTurnstileToken,
-      });
-      renderedWidgetId = widgetIdRef.current;
+      const render = () => {
+        if (cancelled || !containerRef.current || !window.turnstile || containerRef.current.childElementCount > 0) return;
+        widgetIdRef.current = window.turnstile.render(containerRef.current, {
+          sitekey: siteKey,
+          theme: "auto",
+          execution: "render",
+          callback: saveTurnstileToken,
+          "expired-callback": clearTurnstileToken,
+          "error-callback": clearTurnstileToken,
+          "timeout-callback": clearTurnstileToken,
+        });
+        renderedWidgetId = widgetIdRef.current;
+      };
+      if (window.turnstile.ready) window.turnstile.ready(render);
+      else render();
       return true;
     };
 
