@@ -7,6 +7,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { isTurnstileConfigured } from "../turnstile";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -37,6 +38,27 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
+
+  // Non-secret liveness/readiness endpoint for Render, Caddy and operational checks.
+  app.get("/healthz", (_req, res) => {
+    const version = process.env.APP_VERSION || process.env.RENDER_GIT_COMMIT || process.env.COMMIT_SHA || "development";
+    const localFallbackConfigured = Boolean(
+      (process.env.LOCAL_FALLBACK_URL ?? "").trim() &&
+      (process.env.LOCAL_FALLBACK_SHARED_SECRET ?? "").trim()
+    );
+    const isLocalFallbackServer = process.env.LOCAL_FALLBACK_SERVER === "true";
+    res.status(200).json({
+      ok: true,
+      version,
+      uptimeSeconds: Math.floor(process.uptime()),
+      readiness: {
+        application: true,
+        localFallbackConfigured,
+        localFallbackServer: isLocalFallbackServer,
+        turnstileConfigured: isTurnstileConfigured(),
+      },
+    });
+  });
 
   // TubeTranscriber is public and does not require sign-in. Keep the template's
   // OAuth callback available only where the Manus OAuth service is configured,

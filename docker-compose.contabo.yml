@@ -20,3 +20,50 @@ services:
       YTDLP_COOKIES_FILE: "${YTDLP_COOKIES_FILE:-}"
       YTDLP_PROXY_URL: "${YTDLP_PROXY_URL:-}"
       YOUTUBE_PROXY_URL: "${YOUTUBE_PROXY_URL:-}"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS --max-time 4 http://127.0.0.1:3000/healthz >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 45s
+      retries: 3
+
+  # Optional residential test path. It is deliberately not enabled by default.
+  # The relay binds only to the Docker bridge gateway and forwards to the VPS
+  # loopback SSH tunnel. Keep this profile separate from production traffic.
+  private-home-relay:
+    image: alpine/socat:1.8.0.0
+    profiles: ["home-proxy"]
+    network_mode: host
+    restart: unless-stopped
+    command: ["TCP-LISTEN:18080,bind=172.17.0.1,fork,reuseaddr,keepalive", "TCP:127.0.0.1:8080"]
+
+  extractor-home-candidate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["home-proxy"]
+    restart: "no"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:3013:3000"
+    env_file:
+      - .env.contabo
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      LOCAL_FALLBACK_SERVER: "true"
+      WARP_ENABLED: "false"
+      WARP_REQUIRED: "false"
+      PO_TOKEN_ENABLED: "false"
+      YTDLP_COOKIES_FILE: "${YTDLP_COOKIES_FILE:-}"
+      YTDLP_PROXY_URL: "http://host.docker.internal:18080"
+      YOUTUBE_PROXY_URL: "http://host.docker.internal:18080"
+    depends_on:
+      - private-home-relay
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS --max-time 4 http://127.0.0.1:3000/healthz >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 45s
+      retries: 3
