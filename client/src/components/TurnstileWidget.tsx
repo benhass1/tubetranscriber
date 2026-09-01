@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 declare global {
   interface Window {
     turnstile?: {
-      render: (container: HTMLElement, options: {
+      render: (container: string, options: {
         sitekey: string;
         callback?: (token: string) => void;
         "expired-callback"?: () => void;
@@ -70,6 +70,7 @@ export function resetTurnstileWidget() {
 export default function TurnstileWidget() {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
+  const containerIdRef = useRef("tubetranscriber-turnstile-widget");
 
   useEffect(() => {
     const siteKey = window.__CF_TURNSTILE_SITE_KEY__?.trim();
@@ -83,7 +84,7 @@ export default function TurnstileWidget() {
       if (containerRef.current.childElementCount > 0) return true;
       const render = () => {
         if (cancelled || !containerRef.current || !window.turnstile || containerRef.current.childElementCount > 0) return;
-        widgetIdRef.current = window.turnstile.render(containerRef.current, {
+        widgetIdRef.current = window.turnstile.render(containerRef.current.id, {
           sitekey: siteKey,
           theme: "auto",
           execution: "render",
@@ -116,7 +117,7 @@ export default function TurnstileWidget() {
 
   return (
     <div className="turnstile-area" aria-label="Security verification">
-      <div ref={containerRef} />
+      <div id={containerIdRef.current} ref={containerRef} />
       <p className="turnstile-help">Complete the quick security check before extracting captions.</p>
     </div>
   );
