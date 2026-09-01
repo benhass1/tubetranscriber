@@ -8,6 +8,7 @@ import { extractTranscript, parseYoutubeId } from "./transcript";
 import { getCachedTranscript, isTranscriptCacheConfigured, setCachedTranscript } from "./transcriptCache";
 import { COOKIE_NAME } from "@shared/const";
 import { isTurnstileConfigured, verifyTurnstileToken } from "./turnstile";
+import { extractTranscriptFromWorker, transcriptWorkerUrl } from "./cloudflareTranscript";
 
 export const appRouter = router({
   system: systemRouter,
@@ -22,6 +23,12 @@ export const appRouter = router({
     lookup: publicProcedure.input(z.object({
       url: z.string().min(1).max(2048),
     })).mutation(async ({ input, ctx }) => {
+      if (transcriptWorkerUrl()) {
+        const result = await extractTranscriptFromWorker(input.url, ctx.req.header("x-turnstile-token") ?? "");
+        ctx.res.setHeader("X-Cache-Status", "WORKER");
+        return result;
+      }
+
       if (isTurnstileConfigured()) {
         const token = ctx.req.header("x-turnstile-token") ?? "";
         const verified = await verifyTurnstileToken(token, ctx.req.ip);
@@ -59,7 +66,14 @@ export const appRouter = router({
     }),
     localFallback: publicProcedure.input(z.object({
       url: z.string().min(1).max(2048),
-    })).mutation(async ({ input }) => relayToFallback(input.url, "LOCAL_FALLBACK_URL", "LOCAL_FALLBACK_SHARED_SECRET", "Contabo")),
+    })).mutation(async ({ input, ctx }) => {
+      if (transcriptWorkerUrl()) {
+        const result = await extractTranscriptFromWorker(input.url, ctx.req.header("x-turnstile-token") ?? "");
+        ctx.res.setHeader("X-Cache-Status", "WORKER");
+        return result;
+      }
+      return relayToFallback(input.url, "LOCAL_FALLBACK_URL", "LOCAL_FALLBACK_SHARED_SECRET", "Contabo");
+    }),
     ingestBrowser: publicProcedure.input(z.object({
       url: z.string().min(1).max(2048),
       metadata: z.object({

@@ -3,4 +3,13 @@ main = "worker.js"
 compatibility_date = "2026-08-26"
 
 [vars]
-# Set WORKER_AUTH_TOKEN as an encrypted secret with `wrangler secret put`.
+APP_VERSION = "transcript-worker-v1"
+
+# Configure these bindings in the Cloudflare account; never commit IDs or secrets
+# to the repository. Set the Turnstile secret with:
+#   npx wrangler secret put TURNSTILE_SECRET_KEY
+# Create a KV namespace and uncomment/fill this binding before production deploy:
+# [[kv_namespaces]]
+# binding = "TRANSCRIPT_CACHE"
+# id = "YOUR_KV_NAMESPACE_ID"
+# preview_id = "YOUR_KV_PREVIEW_NAMESPACE_ID"

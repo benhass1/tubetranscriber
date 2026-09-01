@@ -6,38 +6,268 @@ const ALLOWED_HOSTS = new Set([
   "www.youtube-nocookie.com",
   "youtubei.googleapis.com",
 ]);
-
 const MAX_POST_BYTES = 2 * 1024 * 1024;
-const DESKTOP_USER_AGENTS = [
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-];
-const MOBILE_USER_AGENTS = [
-  "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
-  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Mobile/15E148 Safari/604.1",
-];
+const TRANSCRIPT_CACHE_TTL = 7 * 24 * 60 * 60;
+const RATE_LIMIT_WINDOW = 10 * 60 * 1000;
+const RATE_LIMIT_MAX_MISSES = 10;
+const missBuckets = new Map();
+const DESKTOP_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
 function isAllowedHost(hostname) {
   return ALLOWED_HOSTS.has(hostname) || hostname.endsWith(".googlevideo.com");
 }
 
-function upstreamUserAgent(request) {
-  const incoming = request.headers.get("user-agent") || "";
-  if (incoming.startsWith("com.google.android.youtube/")) return incoming;
-  const pool = Math.random() < 0.25 ? MOBILE_USER_AGENTS : DESKTOP_USER_AGENTS;
-  return pool[Math.floor(Math.random() * pool.length)];
-}
-
-function corsHeaders() {
+function corsHeaders(request) {
+  const origin = request.headers.get("origin") || "";
+  const allowed = new Set(["https://tubetranscriber.com", "https://www.tubetranscriber.com"]);
   return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "content-type, x-proxy-auth",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Origin": allowed.has(origin) ? origin : "*",
+    "Access-Control-Allow-Headers": "content-type, x-turnstile-token, x-proxy-auth",
+    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
   };
 }
 
-function responseHeaders(upstream) {
-  const headers = new Headers(corsHeaders());
+function jsonResponse(request, payload, status = 200, extra = {}) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders(request), "content-type": "application/json; charset=utf-8", ...extra },
+  });
+}
+
+function textResponse(request, text, status) {
+  return new Response(text, { status, headers: corsHeaders(request) });
+}
+
+function extractVideoId(value) {
+  const candidate = String(value || "").trim();
+  if (/^[0-9A-Za-z_-]{11}$/.test(candidate)) return candidate;
+  const match = candidate.match(/(?:v=|\/\/(?:www\.|m\.)?youtube(?:-nocookie)?\.com\/(?:embed|shorts|live)\/|youtu\.be\/)([0-9A-Za-z_-]{11})/i);
+  return match ? match[1] : null;
+}
+
+function decodeHtml(value) {
+  return String(value || "")
+    .replace(/&#39;|&#x27;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
+function textValue(value) {
+  if (typeof value === "string") return value;
+  if (value && typeof value.simpleText === "string") return value.simpleText;
+  if (value && Array.isArray(value.runs)) return value.runs.map(run => run.text || "").join("");
+  return "";
+}
+
+function extractAssignedJson(markup, variable) {
+  const marker = markup.indexOf(variable);
+  if (marker < 0) return null;
+  const start = markup.indexOf("{", marker);
+  if (start < 0) return null;
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = start; index < markup.length; index += 1) {
+    const character = markup[index];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') quoted = false;
+      continue;
+    }
+    if (character === '"') quoted = true;
+    else if (character === "{") depth += 1;
+    else if (character === "}" && --depth === 0) {
+      try { return JSON.parse(markup.slice(start, index + 1)); } catch { return null; }
+    }
+  }
+  return null;
+}
+
+function captionTracks(player) {
+  return player?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+}
+
+function languageName(track) {
+  return textValue(track?.name) || track?.languageCode || "Unknown";
+}
+
+function chooseTrack(tracks, requestedLanguage) {
+  const requested = String(requestedLanguage || "").trim().toLowerCase();
+  const manual = track => track?.kind !== "asr";
+  const code = track => String(track?.languageCode || "").toLowerCase();
+  const exact = track => requested && code(track) === requested;
+  const prefix = track => requested && code(track).split("-")[0] === requested.split("-")[0];
+  const original = String(tracks[0]?.languageCode || "").toLowerCase();
+  const pick = predicate => tracks.find(predicate);
+  if (requested) return pick(track => exact(track) && manual(track)) || pick(track => exact(track)) || pick(track => prefix(track) && manual(track)) || pick(track => prefix(track));
+  return pick(track => manual(track) && code(track) === original) || pick(track => code(track) === original) || pick(manual) || tracks[0];
+}
+
+function decodeXml(value) {
+  return decodeHtml(value).replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, "");
+}
+
+function parseJson3(payload) {
+  const cues = [];
+  for (const event of Array.isArray(payload?.events) ? payload.events : []) {
+    if (!Array.isArray(event.segs)) continue;
+    const text = event.segs.map(segment => segment.utf8 || "").join("").replace(/\s+/g, " ").trim();
+    if (!text) continue;
+    cues.push({ text, offset: Number(event.tStartMs || 0), duration: Number(event.dDurationMs || 0) });
+  }
+  return cues.filter(cue => Number.isFinite(cue.offset) && cue.text);
+}
+
+function parseXml(xml) {
+  const cues = [];
+  const pattern = /<text\b([^>]*)>([\s\S]*?)<\/text>/gi;
+  let match;
+  while ((match = pattern.exec(xml))) {
+    const start = Number((match[1].match(/\bstart="([^"]+)"/) || [])[1]);
+    const duration = Number((match[1].match(/\bdur="([^"]+)"/) || [])[1] || 0);
+    const text = decodeXml(match[2]).replace(/\s+/g, " ").trim();
+    if (text && Number.isFinite(start)) cues.push({ text, offset: Math.round(start * 1000), duration: Math.round(duration * 1000) });
+  }
+  return cues;
+}
+
+function humanViews(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "";
+  if (number >= 1e9) return `${(number / 1e9).toFixed(1).replace(/\.0$/, "")}B views`;
+  if (number >= 1e6) return `${(number / 1e6).toFixed(1).replace(/\.0$/, "")}M views`;
+  if (number >= 1e3) return `${(number / 1e3).toFixed(1).replace(/\.0$/, "")}K views`;
+  return `${number} views`;
+}
+
+function metadata(player, initialData, videoId, tracks) {
+  const details = player?.videoDetails || {};
+  const micro = player?.microformat?.playerMicroformatRenderer || {};
+  const thumbnail = details.thumbnail?.thumbnails?.at(-1)?.url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  const language = tracks[0];
+  return {
+    videoId,
+    title: details.title || "YouTube video",
+    author: details.author || micro.ownerChannelName || "YouTube",
+    authorUrl: micro.ownerProfileUrl || (details.channelId ? `https://www.youtube.com/channel/${details.channelId}` : ""),
+    views: humanViews(details.viewCount || micro.viewCount),
+    date: micro.publishDate || "",
+    avatar: thumbnail,
+    subs: "",
+    language: { code: language?.languageCode || "", name: languageName(language), isAutoGenerated: language?.kind === "asr" },
+    languages: tracks.map(track => ({ code: track.languageCode || "", name: languageName(track), isAutoGenerated: track.kind === "asr" })),
+  };
+}
+
+function cacheKey(videoId, lang) {
+  return `t:${videoId}:${lang || "auto"}`;
+}
+
+async function getCached(env, key) {
+  try { return env.TRANSCRIPT_CACHE ? await env.TRANSCRIPT_CACHE.get(key, "json") : null; } catch { return null; }
+}
+
+async function putCached(env, key, value) {
+  try { if (env.TRANSCRIPT_CACHE) await env.TRANSCRIPT_CACHE.put(key, JSON.stringify(value), { expirationTtl: TRANSCRIPT_CACHE_TTL }); } catch { /* cache failure must not fail extraction */ }
+}
+
+function allowMiss(ip) {
+  const now = Date.now();
+  const existing = missBuckets.get(ip);
+  if (!existing || now - existing.startedAt >= RATE_LIMIT_WINDOW) {
+    missBuckets.set(ip, { startedAt: now, count: 1 });
+    return true;
+  }
+  if (existing.count >= RATE_LIMIT_MAX_MISSES) return false;
+  existing.count += 1;
+  return true;
+}
+
+async function verifyTurnstile(request, env) {
+  const token = (request.headers.get("x-turnstile-token") || "").trim();
+  if (!token) return { ok: false, response: textResponse(request, "Missing turnstile token. Please refresh and try again.", 403) };
+  const secret = String(env.TURNSTILE_SECRET_KEY || env.CF_TURNSTILE_SECRET_KEY || "").trim();
+  if (!secret) return { ok: false, response: textResponse(request, "Turnstile is not configured.", 503) };
+  const form = new URLSearchParams({ secret, response: token });
+  const remoteIp = request.headers.get("CF-Connecting-IP");
+  if (remoteIp) form.set("remoteip", remoteIp);
+  try {
+    const result = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form });
+    const payload = await result.json();
+    return payload.success ? { ok: true } : { ok: false, response: textResponse(request, "Turnstile verification failed. Please try again.", 403) };
+  } catch {
+    return { ok: false, response: textResponse(request, "Turnstile verification failed. Please try again.", 403) };
+  }
+}
+
+async function transcriptRoute(request, env) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request) });
+  if (request.method === "POST") return textResponse(request, "Method not allowed", 405);
+  if (request.method !== "GET" && request.method !== "HEAD") return textResponse(request, "Method not allowed", 405);
+  if (request.method === "HEAD") return new Response(null, { status: 200, headers: corsHeaders(request) });
+
+  const url = new URL(request.url);
+  const rawUrl = url.searchParams.get("url");
+  if (!rawUrl) return jsonResponse(request, { error: "Missing url parameter" }, 400);
+  const videoId = extractVideoId(rawUrl);
+  if (!videoId) return jsonResponse(request, { error: "invalid youtube link format" }, 400);
+  const lang = url.searchParams.get("lang") || "";
+  const key = cacheKey(videoId, lang);
+  const cached = await getCached(env, key);
+  if (cached) return jsonResponse(request, cached, 200, { "cache-control": "public, max-age=3600", "x-transcript-cache": "HIT" });
+  const verification = await verifyTurnstile(request, env);
+  if (!verification.ok) return verification.response;
+  const ip = request.headers.get("CF-Connecting-IP") || "anonymous";
+  if (!allowMiss(ip)) return jsonResponse(request, { error: "Too many requests. Try again in a minute." }, 429, { "retry-after": "60" });
+
+  const watchUrl = `https://www.youtube.com/watch?v=${videoId}&hl=en&bpctr=9999999999&has_verified=1`;
+  let markup;
+  try {
+    const response = await fetch(watchUrl, { redirect: "follow", headers: { "user-agent": DESKTOP_USER_AGENT, "accept-language": "en-US,en;q=0.9", accept: "text/html,application/xhtml+xml" } });
+    if (!response.ok) return jsonResponse(request, { error: "transcript unavailable" }, 502);
+    markup = await response.text();
+  } catch { return jsonResponse(request, { error: "transcript unavailable" }, 502); }
+
+  const player = extractAssignedJson(markup, "ytInitialPlayerResponse");
+  const initialData = extractAssignedJson(markup, "ytInitialData");
+  const playability = player?.playabilityStatus?.status;
+  if (["LOGIN_REQUIRED", "UNPLAYABLE", "ERROR"].includes(playability)) return jsonResponse(request, { error: "Private, age-restricted, or unplayable video." }, 422);
+  const tracks = captionTracks(player);
+  if (!tracks.length) return jsonResponse(request, { error: "No captions available for this video." }, 404);
+  const track = chooseTrack(tracks, lang);
+  if (!track?.baseUrl) return jsonResponse(request, { error: "No captions available for this video." }, 404);
+
+  const baseUrl = new URL(track.baseUrl);
+  baseUrl.searchParams.set("fmt", "json3");
+  const headers = { "user-agent": DESKTOP_USER_AGENT, referer: `https://www.youtube.com/watch?v=${videoId}`, accept: "application/json,text/plain,*/*" };
+  let cues = [];
+  try {
+    const response = await fetch(baseUrl, { headers, redirect: "follow" });
+    const contentType = response.headers.get("content-type") || "";
+    const body = await response.text();
+    if (!body || contentType.includes("html")) return jsonResponse(request, { error: "transcript unavailable" }, 502);
+    try { cues = parseJson3(JSON.parse(body)); } catch { cues = parseXml(body); }
+  } catch { return jsonResponse(request, { error: "transcript unavailable" }, 502); }
+  if (!cues.length) return jsonResponse(request, { error: "No captions available for this video." }, 404);
+
+  const info = metadata(player, initialData, videoId, tracks);
+  const result = { ...info, language: { code: track.languageCode || "", name: languageName(track), isAutoGenerated: track.kind === "asr" }, transcript: cues };
+  await putCached(env, key, result);
+  return jsonResponse(request, result, 200, { "cache-control": "public, max-age=3600", "x-transcript-cache": "MISS" });
+}
+
+function upstreamUserAgent(request) {
+  const incoming = request.headers.get("user-agent") || "";
+  return incoming.startsWith("com.google.android.youtube/") ? incoming : DESKTOP_USER_AGENT;
+}
+
+function proxyResponseHeaders(upstream, request) {
+  const headers = new Headers(corsHeaders(request));
   for (const name of ["content-type", "content-language", "retry-after"]) {
     const value = upstream.headers.get(name);
     if (value) headers.set(name, value);
@@ -46,82 +276,44 @@ function responseHeaders(upstream) {
   return headers;
 }
 
+async function legacyProxy(request, env) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request) });
+  if (request.method !== "GET" && request.method !== "POST") return textResponse(request, "Method not allowed", 405);
+  if (!env.WORKER_AUTH_TOKEN) return textResponse(request, "Proxy is not configured", 503);
+  if (request.headers.get("x-proxy-auth") !== env.WORKER_AUTH_TOKEN) return textResponse(request, "Unauthorized", 401);
+  const incomingUrl = new URL(request.url);
+  const targetValue = incomingUrl.searchParams.get("url");
+  if (!targetValue) return textResponse(request, "Missing url parameter", 400);
+  let targetUrl;
+  try { targetUrl = new URL(targetValue); } catch { return textResponse(request, "Invalid target URL", 400); }
+  if (targetUrl.protocol !== "https:" || !isAllowedHost(targetUrl.hostname)) return textResponse(request, "Target host is not allowed", 403);
+  let body;
+  if (request.method === "POST") {
+    const contentLength = Number(request.headers.get("content-length") || 0);
+    if (contentLength > MAX_POST_BYTES) return textResponse(request, "Request body is too large", 413);
+    body = await request.arrayBuffer();
+  }
+  const headers = new Headers();
+  for (const name of ["accept", "accept-language", "content-type", "cookie"]) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  headers.set("user-agent", upstreamUserAgent(request));
+  headers.set("referer", "https://www.youtube.com/");
+  headers.set("origin", "https://www.youtube.com");
+  headers.set("accept-encoding", "identity");
+  try {
+    const upstream = await fetch(targetUrl, { method: request.method, headers, body, redirect: "follow" });
+    return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: proxyResponseHeaders(upstream, request) });
+  } catch (error) {
+    return textResponse(request, `Upstream request failed: ${error instanceof Error ? error.message : "unknown error"}`, 502);
+  }
+}
+
 export default {
   async fetch(request, env) {
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders() });
-    }
-
-    if (request.method !== "GET" && request.method !== "POST") {
-      return new Response("Method not allowed", { status: 405, headers: corsHeaders() });
-    }
-
-    if (!env.WORKER_AUTH_TOKEN) {
-      return new Response("Proxy is not configured", { status: 503, headers: corsHeaders() });
-    }
-
-    const suppliedToken = request.headers.get("x-proxy-auth");
-    if (!suppliedToken || suppliedToken !== env.WORKER_AUTH_TOKEN) {
-      return new Response("Unauthorized", { status: 401, headers: corsHeaders() });
-    }
-
-    const incomingUrl = new URL(request.url);
-    const targetValue = incomingUrl.searchParams.get("url");
-    if (!targetValue) {
-      return new Response("Missing url parameter", { status: 400, headers: corsHeaders() });
-    }
-
-    let targetUrl;
-    try {
-      targetUrl = new URL(targetValue);
-    } catch {
-      return new Response("Invalid target URL", { status: 400, headers: corsHeaders() });
-    }
-
-    if (targetUrl.protocol !== "https:" || !isAllowedHost(targetUrl.hostname)) {
-      return new Response("Target host is not allowed", { status: 403, headers: corsHeaders() });
-    }
-
-    let body;
-    if (request.method === "POST") {
-      const contentLength = Number(request.headers.get("content-length") || 0);
-      if (contentLength > MAX_POST_BYTES) {
-        return new Response("Request body is too large", { status: 413, headers: corsHeaders() });
-      }
-      body = await request.arrayBuffer();
-      if (body.byteLength > MAX_POST_BYTES) {
-        return new Response("Request body is too large", { status: 413, headers: corsHeaders() });
-      }
-    }
-
-    const upstreamHeaders = new Headers();
-    for (const name of ["accept", "accept-language", "content-type", "cookie"]) {
-      const value = request.headers.get(name);
-      if (value) upstreamHeaders.set(name, value);
-    }
-    upstreamHeaders.set("user-agent", upstreamUserAgent(request));
-    upstreamHeaders.set("referer", "https://www.youtube.com/");
-    upstreamHeaders.set("origin", "https://www.youtube.com");
-    upstreamHeaders.set("accept-encoding", "identity");
-
-    try {
-      const upstream = await fetch(targetUrl, {
-        method: request.method,
-        headers: upstreamHeaders,
-        body,
-        redirect: "follow",
-      });
-
-      return new Response(upstream.body, {
-        status: upstream.status,
-        statusText: upstream.statusText,
-        headers: responseHeaders(upstream),
-      });
-    } catch (error) {
-      return new Response(`Upstream request failed: ${error instanceof Error ? error.message : "unknown error"}`, {
-        status: 502,
-        headers: corsHeaders(),
-      });
-    }
+    const path = new URL(request.url).pathname;
+    if (path === "/api/transcript") return transcriptRoute(request, env);
+    return legacyProxy(request, env);
   },
 };

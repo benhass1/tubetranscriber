@@ -3,7 +3,7 @@ import TurnstileWidget from "@/components/TurnstileWidget";
 import YouTubeTranscriptPlayer from "@/components/YouTubeTranscriptPlayer";
 import { trpc } from "@/lib/trpc";
 import { saveLocalHistoryEntry } from "@/lib/localHistory";
-import { fetchBrowserTranscript, type BrowserTranscriptResult } from "@/lib/browserTranscript";
+import type { BrowserTranscriptResult } from "@/lib/browserTranscript";
 import { groupTranscript, plainTranscript, timestamp, toMarkdown, toSrt, toTxt, toVtt, type TranscriptGroup } from "@shared/transcript";
 import { AlertCircle, ArrowRight, Check, ChevronDown, ChevronLeft, Clipboard, Download, ExternalLink, FileJson, FileText, Link2, Loader2, RotateCcw, Search, Subtitles, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -104,35 +104,11 @@ export default function Transcript() {
     };
 
     const runAttempt = async () => {
-      setContaboFallbackPending(true);
-      try {
-        const result = await contaboFallback.mutateAsync({ url: sourceUrl }) as BrowserTranscriptResult;
-        acceptResult(result);
-        return;
-      } catch (error) {
-        if (!cancelled) setContaboFallbackError(error instanceof Error ? error.message : "The Contabo backend was not available.");
-      } finally {
-        if (!cancelled) setContaboFallbackPending(false);
-      }
-
-      if (cancelled) return;
-      setBrowserFallbackPending(true);
-      try {
-        const result = await fetchBrowserTranscript(sourceUrl);
-        acceptResult(result);
-        return;
-      } catch (error) {
-        if (!cancelled) setBrowserFallbackError(error instanceof Error ? error.message : "Browser extraction was not available for this video.");
-      } finally {
-        if (!cancelled) setBrowserFallbackPending(false);
-      }
-
-      if (cancelled) return;
       try {
         const result = await lookup.mutateAsync({ url: sourceUrl }) as BrowserTranscriptResult;
         acceptResult(result);
       } catch (error) {
-        if (!cancelled) setRenderFallbackError(error instanceof Error ? error.message : "Render could not retrieve this transcript.");
+        if (!cancelled) setRenderFallbackError(error instanceof Error ? error.message : "The transcript service could not retrieve this video.");
       }
     };
 
