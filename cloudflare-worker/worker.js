@@ -88,6 +88,34 @@ function extractAssignedJson(markup, variable) {
   return null;
 }
 
+function extractConfigValue(markup, name) {
+  const pattern = new RegExp(`[\\\"']${name}[\\\"']\\s*:\\s*[\\\"']([^\\\"']+)`);
+  return markup.match(pattern)?.[1] || "";
+}
+
+async function fetchAndroidPlayer(videoId, markup, env) {
+  const key = extractConfigValue(markup, "INNERTUBE_API_KEY") || String(env.YOUTUBE_PLAYER_API_KEY || "").trim();
+  if (!key) return null;
+  try {
+    const response = await fetch(`https://www.youtube.com/youtubei/v1/player?key=${encodeURIComponent(key)}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "user-agent": "com.google.android.youtube/20.10.38 (Linux; U; Android 11) gzip",
+        "accept-language": "en-US,en;q=0.9",
+      },
+      body: JSON.stringify({
+        context: { client: { clientName: "ANDROID", clientVersion: "20.10.38", androidSdkVersion: 30, hl: "en", gl: "US" } },
+        videoId,
+      }),
+    });
+    if (!response.ok) return null;
+    return await response.json().catch(() => null);
+  } catch {
+    return null;
+  }
+}
+
 function captionTracks(player) {
   return player?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
 }
@@ -221,6 +249,24 @@ async function fetchWatchMarkup(videoId) {
   }
 }
 
+async function fetchTrackCues(track, videoId, cookie) {
+  if (!track?.baseUrl) return [];
+  try {
+    const baseUrl = new URL(track.baseUrl);
+    baseUrl.searchParams.set("fmt", "json3");
+    const response = await fetch(baseUrl, {
+      headers: { ...youtubeHeaders(cookie), referer: `https://www.youtube.com/watch?v=${videoId}`, accept: "application/json,text/plain,*/*" },
+      redirect: "follow",
+    });
+    const contentType = response.headers.get("content-type") || "";
+    const body = await response.text();
+    if (!body || contentType.includes("html")) return [];
+    try { return parseJson3(JSON.parse(body)); } catch { return parseXml(body); }
+  } catch {
+    return [];
+  }
+}
+
 function allowMiss(ip) {
   const now = Date.now();
   const existing = missBuckets.get(ip);
@@ -274,27 +320,37 @@ async function transcriptRoute(request, env) {
   if (!watch.response || !watch.response.ok || !watch.markup) return jsonResponse(request, { error: "transcript unavailable" }, 502);
   const markup = watch.markup;
 
-  const player = extractAssignedJson(markup, "ytInitialPlayerResponse");
-  const initialData = extractAssignedJson(markup, "ytInitialData");
-  const playability = player?.playabilityStatus?.status;
+  let player = extractAssignedJson(markup, "ytInitialPlayerResponse");
+  let initialData = extractAssignedJson(markup, "ytInitialData");
+  let playability = player?.playabilityStatus?.status;
+  let tracks = captionTracks(player);
+  if (!tracks.length || ["LOGIN_REQUIRED", "UNPLAYABLE", "ERROR"].includes(playability)) {
+    const androidPlayer = await fetchAndroidPlayer(videoId, markup, env);
+    if (androidPlayer) {
+      player = androidPlayer;
+      tracks = captionTracks(player);
+      playability = player?.playabilityStatus?.status;
+    }
+  }
   if (["LOGIN_REQUIRED", "UNPLAYABLE", "ERROR"].includes(playability)) return jsonResponse(request, { error: "Private, age-restricted, or unplayable video." }, 422);
-  const tracks = captionTracks(player);
   if (!tracks.length) return jsonResponse(request, { error: "No captions available for this video." }, 404);
-  const track = chooseTrack(tracks, lang);
+  let track = chooseTrack(tracks, lang);
   if (!track?.baseUrl) return jsonResponse(request, { error: "No captions available for this video." }, 404);
 
-  const baseUrl = new URL(track.baseUrl);
-  baseUrl.searchParams.set("fmt", "json3");
-  const headers = { ...youtubeHeaders(watch.cookie), referer: `https://www.youtube.com/watch?v=${videoId}`, accept: "application/json,text/plain,*/*" };
-  let cues = [];
-  try {
-    const response = await fetch(baseUrl, { headers, redirect: "follow" });
-    const contentType = response.headers.get("content-type") || "";
-    const body = await response.text();
-    if (!body || contentType.includes("html")) return jsonResponse(request, { error: "transcript unavailable" }, 502);
-    try { cues = parseJson3(JSON.parse(body)); } catch { cues = parseXml(body); }
-  } catch { return jsonResponse(request, { error: "transcript unavailable" }, 502); }
-  if (!cues.length) return jsonResponse(request, { error: "No captions available for this video." }, 404);
+  let cues = await fetchTrackCues(track, videoId, watch.cookie);
+  if (!cues.length) {
+    const androidPlayer = await fetchAndroidPlayer(videoId, markup, env);
+    const androidTracks = captionTracks(androidPlayer);
+    const androidTrack = chooseTrack(androidTracks, lang);
+    const androidCues = await fetchTrackCues(androidTrack, videoId, watch.cookie);
+    if (androidCues.length) {
+      player = androidPlayer;
+      tracks = androidTracks;
+      track = androidTrack;
+      cues = androidCues;
+    }
+  }
+  if (!cues.length) return jsonResponse(request, { error: "transcript unavailable" }, 502);
 
   const info = metadata(player, initialData, videoId, tracks);
   const result = { ...info, language: { code: track.languageCode || "", name: languageName(track), isAutoGenerated: track.kind === "asr" }, transcript: cues };
