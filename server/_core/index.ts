@@ -42,11 +42,12 @@ async function startServer() {
   // Non-secret liveness/readiness endpoint for Render, Caddy and operational checks.
   app.get("/healthz", (_req, res) => {
     const version = process.env.APP_VERSION || process.env.RENDER_GIT_COMMIT || process.env.COMMIT_SHA || "development";
-    const localFallbackConfigured = Boolean(
-      (process.env.LOCAL_FALLBACK_URL ?? "").trim() &&
-      (process.env.LOCAL_FALLBACK_SHARED_SECRET ?? "").trim()
-    );
+    const localFallbackSecretConfigured = Boolean((process.env.LOCAL_FALLBACK_SHARED_SECRET ?? "").trim());
+    const localFallbackUrlConfigured = Boolean((process.env.LOCAL_FALLBACK_URL ?? "").trim());
     const isLocalFallbackServer = process.env.LOCAL_FALLBACK_SERVER === "true";
+    const localFallbackConfigured = isLocalFallbackServer
+      ? localFallbackSecretConfigured
+      : localFallbackUrlConfigured && localFallbackSecretConfigured;
     res.status(200).json({
       ok: true,
       version,
@@ -54,6 +55,7 @@ async function startServer() {
       readiness: {
         application: true,
         localFallbackConfigured,
+        localFallbackSecretConfigured,
         localFallbackServer: isLocalFallbackServer,
         turnstileConfigured: isTurnstileConfigured(),
       },

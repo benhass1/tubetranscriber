@@ -8,7 +8,7 @@ describe("Render deployment configuration", () => {
     expect(blueprint).toContain("type: web");
     expect(blueprint).toContain("runtime: docker");
     expect(blueprint).toContain("plan: free");
-    expect(blueprint).toContain("healthCheckPath: /");
+    expect(blueprint).toContain("healthCheckPath: /healthz");
     expect(blueprint).toContain("key: CANONICAL_ORIGIN");
     expect(blueprint).toContain("key: WARP_ENABLED");
     expect(blueprint).toContain("key: WARP_REQUIRED");
@@ -26,6 +26,7 @@ describe("Render deployment configuration", () => {
 
     expect(server).toContain('if (process.env.OAUTH_SERVER_URL)');
     expect(server).toContain('await import("./oauth")');
+    expect(server).toContain('app.get("/healthz"');
     expect(context).toContain('if (process.env.OAUTH_SERVER_URL)');
     expect(context).toContain('await import("./sdk")');
     expect(html).not.toContain("%VITE_ANALYTICS_ENDPOINT%");
