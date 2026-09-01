@@ -17,6 +17,9 @@ declare global {
 }
 
 const TOKEN_STORAGE_KEY = "tubetranscriber-turnstile-token";
+type TokenListener = (token: string) => void;
+const tokenListeners = new Set<TokenListener>();
+let renderedWidgetId: string | undefined;
 
 export function getTurnstileToken() {
   try {
@@ -27,11 +30,21 @@ export function getTurnstileToken() {
 }
 
 function saveTurnstileToken(token: string) {
+  const normalized = token.trim();
+  if (!normalized) return;
   try {
-    sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+    sessionStorage.setItem(TOKEN_STORAGE_KEY, normalized);
   } catch {
     // Storage can be unavailable in privacy-restricted browsers; the callback remains valid for the page.
   }
+  tokenListeners.forEach(listener => listener(normalized));
+}
+
+export function onTurnstileToken(listener: TokenListener) {
+  tokenListeners.add(listener);
+  const current = getTurnstileToken().trim();
+  if (current) listener(current);
+  return () => tokenListeners.delete(listener);
 }
 
 export function clearTurnstileToken() {
@@ -39,6 +52,15 @@ export function clearTurnstileToken() {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY);
   } catch {
     // Ignore storage restrictions.
+  }
+}
+
+export function resetTurnstileWidget() {
+  clearTurnstileToken();
+  try {
+    if (renderedWidgetId && window.turnstile) window.turnstile.reset(renderedWidgetId);
+  } catch {
+    // A widget can already be unmounted while a request is settling.
   }
 }
 
@@ -63,6 +85,7 @@ export default function TurnstileWidget() {
         "expired-callback": clearTurnstileToken,
         "error-callback": clearTurnstileToken,
       });
+      renderedWidgetId = widgetIdRef.current;
       return true;
     };
 
@@ -75,6 +98,7 @@ export default function TurnstileWidget() {
     return () => {
       cancelled = true;
       if (timer) window.clearInterval(timer);
+      if (renderedWidgetId === widgetIdRef.current) renderedWidgetId = undefined;
     };
   }, []);
 
@@ -86,4 +110,34 @@ export default function TurnstileWidget() {
       <p className="turnstile-help">Complete the quick security check before extracting captions.</p>
     </div>
   );
+}
+
+export { TOKEN_STORAGE_KEY };
+
+type TokenReader = () => string;
+type TokenSubscription = (listener: TokenListener) => () => void;
+
+/** Starts exactly one attempt immediately or after the next valid Turnstile token. */
+export function startWhenTurnstileTokenAvailable(
+  readToken: TokenReader,
+  subscribe: TokenSubscription,
+  attempt: () => void,
+) {
+  let started = false;
+  let active = true;
+
+  const start = (token: string) => {
+    if (!active || started || !token.trim()) return;
+    started = true;
+    attempt();
+  };
+
+  const current = readToken().trim();
+  if (current) start(current);
+  const unsubscribe = subscribe(start);
+
+  return () => {
+    active = false;
+    unsubscribe();
+  };
 }
