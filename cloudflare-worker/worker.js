@@ -216,13 +216,21 @@ async function putCached(env, key, value) {
   try { if (env.TRANSCRIPT_CACHE) await env.TRANSCRIPT_CACHE.put(key, JSON.stringify(value), { expirationTtl: TRANSCRIPT_CACHE_TTL }); } catch { /* cache failure must not fail extraction */ }
 }
 
-function youtubeHeaders(cookie = "") {
+function normalizeCookie(setCookie) {
+  return String(setCookie || "")
+    .split(/,\s*(?=[^;,\s]+=)/)
+    .map(cookie => cookie.split(";", 1)[0].trim())
+    .filter(Boolean)
+    .join("; ");
+}
+
+function youtubeHeaders(cookie = "", userAgent = DESKTOP_USER_AGENT) {
   const headers = {
-    "user-agent": DESKTOP_USER_AGENT,
+    "user-agent": userAgent,
     "accept-language": "en-US,en;q=0.9",
     accept: "text/html,application/xhtml+xml",
   };
-  if (cookie) headers.cookie = cookie;
+  if (cookie) headers.cookie = normalizeCookie(cookie);
   return headers;
 }
 
@@ -231,7 +239,7 @@ async function fetchWatchMarkup(videoId) {
   let first;
   try {
     first = await fetch(watchUrl, { redirect: "manual", headers: youtubeHeaders() });
-    const cookie = first.headers.get("set-cookie") || "";
+    const cookie = normalizeCookie(first.headers.get("set-cookie"));
     const location = first.headers.get("location");
     const nextUrl = location ? new URL(location, watchUrl).toString() : watchUrl;
     const response = first.status >= 300 && first.status < 400
