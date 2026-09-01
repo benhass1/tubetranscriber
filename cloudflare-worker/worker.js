@@ -168,6 +168,18 @@ function cacheKey(videoId, lang) {
   return `t:${videoId}:${lang || "auto"}`;
 }
 
+function healthResponse(request, env) {
+  const turnstileConfigured = Boolean(String(env.TURNSTILE_SECRET_KEY || env.CF_TURNSTILE_SECRET_KEY || "").trim());
+  return jsonResponse(request, {
+    ok: true,
+    service: "tubetranscriber-transcript-proxy",
+    version: String(env.APP_VERSION || "dev"),
+    runtime: "cloudflare-worker",
+    transcriptCacheConfigured: Boolean(env.TRANSCRIPT_CACHE),
+    turnstileConfigured,
+  });
+}
+
 async function getCached(env, key) {
   try { return env.TRANSCRIPT_CACHE ? await env.TRANSCRIPT_CACHE.get(key, "json") : null; } catch { return null; }
 }
@@ -342,6 +354,7 @@ async function legacyProxy(request, env) {
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    if (path === "/healthz") return healthResponse(request, env);
     if (path === "/api/transcript") return transcriptRoute(request, env);
     return legacyProxy(request, env);
   },
