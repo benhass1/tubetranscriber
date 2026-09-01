@@ -21,13 +21,17 @@ type WorkerPayload = {
   transcript?: WorkerCue[];
 };
 
-function workerError(status: number, message: string): never {
-  if (status === 400) throw new TRPCError({ code: "BAD_REQUEST", message });
-  if (status === 403) throw new TRPCError({ code: "FORBIDDEN", message });
-  if (status === 404) throw new TRPCError({ code: "NOT_FOUND", message });
-  if (status === 422) throw new TRPCError({ code: "UNPROCESSABLE_CONTENT", message });
-  if (status === 429) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message });
-  throw new TRPCError({ code: "BAD_GATEWAY", message });
+const SAFE_WORKER_STAGES = new Set(["watch-fetch", "player-playability", "caption-tracks", "caption-track-url", "timedtext-empty"]);
+
+function workerError(status: number, message: string, stage = ""): never {
+  const detail = SAFE_WORKER_STAGES.has(stage) ? ` [Cloudflare stage: ${stage}]` : "";
+  const safeMessage = `${message}${detail}`;
+  if (status === 400) throw new TRPCError({ code: "BAD_REQUEST", message: safeMessage });
+  if (status === 403) throw new TRPCError({ code: "FORBIDDEN", message: safeMessage });
+  if (status === 404) throw new TRPCError({ code: "NOT_FOUND", message: safeMessage });
+  if (status === 422) throw new TRPCError({ code: "UNPROCESSABLE_CONTENT", message: safeMessage });
+  if (status === 429) throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: safeMessage });
+  throw new TRPCError({ code: "BAD_GATEWAY", message: safeMessage });
 }
 
 export async function extractTranscriptFromWorker(url: string, turnstileToken: string, lang?: string): Promise<ExtractedTranscript> {
@@ -54,7 +58,10 @@ export async function extractTranscriptFromWorker(url: string, turnstileToken: s
     const raw = await response.text();
     let payload: WorkerPayload | { error?: string } = {};
     try { payload = JSON.parse(raw) as WorkerPayload | { error?: string }; } catch { workerError(response.status, "The Cloudflare transcript Worker returned an invalid response."); }
-    if (!response.ok) workerError(response.status, typeof payload === "object" && payload && "error" in payload && typeof payload.error === "string" ? payload.error : "The Cloudflare transcript Worker could not retrieve captions.");
+    if (!response.ok) {
+      const stage = response.headers.get("x-transcript-stage") || "";
+      workerError(response.status, typeof payload === "object" && payload && "error" in payload && typeof payload.error === "string" ? payload.error : "The Cloudflare transcript Worker could not retrieve captions.", stage);
+    }
 
     const success = payload as WorkerPayload;
     const transcript = Array.isArray(success.transcript) ? success.transcript : [];
