@@ -84,7 +84,7 @@ export default function TurnstileWidget() {
       if (containerRef.current.childElementCount > 0) return true;
       const render = () => {
         if (cancelled || !containerRef.current || !window.turnstile || containerRef.current.childElementCount > 0) return;
-        widgetIdRef.current = window.turnstile.render(containerRef.current.id, {
+        widgetIdRef.current = window.turnstile.render(`#${containerRef.current.id}`, {
           sitekey: siteKey,
           theme: "auto",
           execution: "render",
