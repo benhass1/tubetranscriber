@@ -176,6 +176,39 @@ async function putCached(env, key, value) {
   try { if (env.TRANSCRIPT_CACHE) await env.TRANSCRIPT_CACHE.put(key, JSON.stringify(value), { expirationTtl: TRANSCRIPT_CACHE_TTL }); } catch { /* cache failure must not fail extraction */ }
 }
 
+function youtubeHeaders(cookie = "") {
+  const headers = {
+    "user-agent": DESKTOP_USER_AGENT,
+    "accept-language": "en-US,en;q=0.9",
+    accept: "text/html,application/xhtml+xml",
+  };
+  if (cookie) headers.cookie = cookie;
+  return headers;
+}
+
+async function fetchWatchMarkup(videoId) {
+  const watchUrl = `https://www.youtube.com/watch?v=${videoId}&hl=en&bpctr=9999999999&has_verified=1`;
+  let first;
+  try {
+    first = await fetch(watchUrl, { redirect: "manual", headers: youtubeHeaders() });
+    const cookie = first.headers.get("set-cookie") || "";
+    const location = first.headers.get("location");
+    const nextUrl = location ? new URL(location, watchUrl).toString() : watchUrl;
+    const response = first.status >= 300 && first.status < 400
+      ? await fetch(nextUrl, { redirect: "follow", headers: youtubeHeaders(cookie) })
+      : first;
+    let markup = await response.text();
+    if (cookie && /consent|consent.youtube.com|before you continue/i.test(markup)) {
+      const retry = await fetch(watchUrl, { redirect: "follow", headers: youtubeHeaders(cookie) });
+      markup = await retry.text();
+      return { response: retry, markup, cookie };
+    }
+    return { response, markup, cookie };
+  } catch {
+    return { response: null, markup: "", cookie: "" };
+  }
+}
+
 function allowMiss(ip) {
   const now = Date.now();
   const existing = missBuckets.get(ip);
@@ -190,24 +223,24 @@ function allowMiss(ip) {
 
 async function verifyTurnstile(request, env) {
   const token = (request.headers.get("x-turnstile-token") || "").trim();
-  if (!token) return { ok: false, response: textResponse(request, "Missing turnstile token. Please refresh and try again.", 403) };
+  if (!token) return { ok: false, response: jsonResponse(request, { error: "Missing turnstile token. Please refresh and try again." }, 403) };
   const secret = String(env.TURNSTILE_SECRET_KEY || env.CF_TURNSTILE_SECRET_KEY || "").trim();
-  if (!secret) return { ok: false, response: textResponse(request, "Turnstile is not configured.", 503) };
+  if (!secret) return { ok: false, response: jsonResponse(request, { error: "Turnstile is not configured." }, 503) };
   const form = new URLSearchParams({ secret, response: token });
   const remoteIp = request.headers.get("CF-Connecting-IP");
   if (remoteIp) form.set("remoteip", remoteIp);
   try {
     const result = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form });
     const payload = await result.json();
-    return payload.success ? { ok: true } : { ok: false, response: textResponse(request, "Turnstile verification failed. Please try again.", 403) };
+    return payload.success ? { ok: true } : { ok: false, response: jsonResponse(request, { error: "Turnstile verification failed. Please try again." }, 403) };
   } catch {
-    return { ok: false, response: textResponse(request, "Turnstile verification failed. Please try again.", 403) };
+    return { ok: false, response: jsonResponse(request, { error: "Turnstile verification failed. Please try again." }, 403) };
   }
 }
 
 async function transcriptRoute(request, env) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request) });
-  if (request.method === "POST") return textResponse(request, "Method not allowed", 405);
+  if (request.method === "POST") return jsonResponse(request, { error: "Method not allowed" }, 405);
   if (request.method !== "GET" && request.method !== "HEAD") return textResponse(request, "Method not allowed", 405);
   if (request.method === "HEAD") return new Response(null, { status: 200, headers: corsHeaders(request) });
 
@@ -217,21 +250,17 @@ async function transcriptRoute(request, env) {
   const videoId = extractVideoId(rawUrl);
   if (!videoId) return jsonResponse(request, { error: "invalid youtube link format" }, 400);
   const lang = url.searchParams.get("lang") || "";
+  const verification = await verifyTurnstile(request, env);
+  if (!verification.ok) return verification.response;
   const key = cacheKey(videoId, lang);
   const cached = await getCached(env, key);
   if (cached) return jsonResponse(request, cached, 200, { "cache-control": "public, max-age=3600", "x-transcript-cache": "HIT" });
-  const verification = await verifyTurnstile(request, env);
-  if (!verification.ok) return verification.response;
   const ip = request.headers.get("CF-Connecting-IP") || "anonymous";
   if (!allowMiss(ip)) return jsonResponse(request, { error: "Too many requests. Try again in a minute." }, 429, { "retry-after": "60" });
 
-  const watchUrl = `https://www.youtube.com/watch?v=${videoId}&hl=en&bpctr=9999999999&has_verified=1`;
-  let markup;
-  try {
-    const response = await fetch(watchUrl, { redirect: "follow", headers: { "user-agent": DESKTOP_USER_AGENT, "accept-language": "en-US,en;q=0.9", accept: "text/html,application/xhtml+xml" } });
-    if (!response.ok) return jsonResponse(request, { error: "transcript unavailable" }, 502);
-    markup = await response.text();
-  } catch { return jsonResponse(request, { error: "transcript unavailable" }, 502); }
+  const watch = await fetchWatchMarkup(videoId);
+  if (!watch.response || !watch.response.ok || !watch.markup) return jsonResponse(request, { error: "transcript unavailable" }, 502);
+  const markup = watch.markup;
 
   const player = extractAssignedJson(markup, "ytInitialPlayerResponse");
   const initialData = extractAssignedJson(markup, "ytInitialData");
@@ -244,7 +273,7 @@ async function transcriptRoute(request, env) {
 
   const baseUrl = new URL(track.baseUrl);
   baseUrl.searchParams.set("fmt", "json3");
-  const headers = { "user-agent": DESKTOP_USER_AGENT, referer: `https://www.youtube.com/watch?v=${videoId}`, accept: "application/json,text/plain,*/*" };
+  const headers = { ...youtubeHeaders(watch.cookie), referer: `https://www.youtube.com/watch?v=${videoId}`, accept: "application/json,text/plain,*/*" };
   let cues = [];
   try {
     const response = await fetch(baseUrl, { headers, redirect: "follow" });

@@ -1,13 +1,11 @@
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
-import { extractTranscript, parseYoutubeId } from "./transcript";
-import { getCachedTranscript, isTranscriptCacheConfigured, setCachedTranscript } from "./transcriptCache";
+import { parseYoutubeId } from "./transcript";
+import { setCachedTranscript } from "./transcriptCache";
 import { COOKIE_NAME } from "@shared/const";
-import { isTurnstileConfigured, verifyTurnstileToken } from "./turnstile";
 import { extractTranscriptFromWorker, transcriptWorkerUrl } from "./cloudflareTranscript";
 
 export const appRouter = router({
@@ -23,56 +21,12 @@ export const appRouter = router({
     lookup: publicProcedure.input(z.object({
       url: z.string().min(1).max(2048),
     })).mutation(async ({ input, ctx }) => {
-      if (transcriptWorkerUrl()) {
-        const result = await extractTranscriptFromWorker(input.url, ctx.req.header("x-turnstile-token") ?? "");
-        ctx.res.setHeader("X-Cache-Status", "WORKER");
-        return result;
+      if (!transcriptWorkerUrl()) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The Cloudflare transcript Worker is not configured." });
       }
-
-      if (isTurnstileConfigured()) {
-        const token = ctx.req.header("x-turnstile-token") ?? "";
-        const verified = await verifyTurnstileToken(token, ctx.req.ip);
-        if (!verified) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Please complete the security check before extracting captions." });
-        }
-      }
-
-      const videoId = parseYoutubeId(input.url);
-      const cacheEnabled = isTranscriptCacheConfigured();
-
-      if (!videoId || !cacheEnabled) {
-        ctx.res.setHeader("X-Cache-Status", cacheEnabled ? "MISS" : "DISABLED");
-        return extractTranscript(input.url);
-      }
-
-      try {
-        const cached = await getCachedTranscript(videoId);
-        if (cached) {
-          ctx.res.setHeader("X-Cache-Status", "HIT");
-          return cached;
-        }
-      } catch (error) {
-        console.warn("[TranscriptCache] read failed; continuing to YouTube", error instanceof Error ? error.message : "unknown error");
-      }
-
-      ctx.res.setHeader("X-Cache-Status", "MISS");
-      const result = await extractTranscript(input.url);
-      try {
-        await setCachedTranscript(videoId, result);
-      } catch (error) {
-        console.warn("[TranscriptCache] write failed; transcript still returned", error instanceof Error ? error.message : "unknown error");
-      }
+      const result = await extractTranscriptFromWorker(input.url, ctx.req.header("x-turnstile-token") ?? "");
+      ctx.res.setHeader("X-Cache-Status", "WORKER");
       return result;
-    }),
-    localFallback: publicProcedure.input(z.object({
-      url: z.string().min(1).max(2048),
-    })).mutation(async ({ input, ctx }) => {
-      if (transcriptWorkerUrl()) {
-        const result = await extractTranscriptFromWorker(input.url, ctx.req.header("x-turnstile-token") ?? "");
-        ctx.res.setHeader("X-Cache-Status", "WORKER");
-        return result;
-      }
-      return relayToFallback(input.url, "LOCAL_FALLBACK_URL", "LOCAL_FALLBACK_SHARED_SECRET", "Contabo");
     }),
     ingestBrowser: publicProcedure.input(z.object({
       url: z.string().min(1).max(2048),
@@ -114,177 +68,5 @@ export const appRouter = router({
     }),
   }),
 });
-
-type FallbackFailureClass =
-  | "no_transcript"
-  | "client_4xx"
-  | "auth_401_403"
-  | "route_404"
-  | "rate_limited"
-  | "timeout"
-  | "network_error"
-  | "upstream_4xx"
-  | "upstream_5xx"
-  | "non_json"
-  | "empty_success"
-  | "invalid_payload";
-
-type RelayPayload = {
-  result?: { data?: { json?: unknown } };
-  error?: { json?: { message?: string; data?: { code?: string } } };
-};
-
-type RelayFailure = Error & {
-  failureClass: FallbackFailureClass;
-  status?: number;
-  retryable: boolean;
-};
-
-const FALLBACK_ATTEMPT_TIMEOUT_MS = 12_000;
-const FALLBACK_RETRY_DELAY_MS = 350;
-const CONTABO_BREAKER_THRESHOLD = 3;
-const CONTABO_BREAKER_COOLDOWN_MS = 60_000;
-
-const contaboBreaker = {
-  failures: 0,
-  openedAt: 0,
-  isOpen() {
-    if (!this.openedAt) return false;
-    if (Date.now() - this.openedAt >= CONTABO_BREAKER_COOLDOWN_MS) {
-      this.failures = 0;
-      this.openedAt = 0;
-      return false;
-    }
-    return true;
-  },
-  onSuccess() {
-    this.failures = 0;
-    this.openedAt = 0;
-  },
-  onRetryableFailure() {
-    this.failures += 1;
-    if (this.failures >= CONTABO_BREAKER_THRESHOLD) this.openedAt = Date.now();
-  },
-};
-
-function relayError(message: string, failureClass: FallbackFailureClass, status?: number): RelayFailure {
-  const error = new Error(message) as RelayFailure;
-  error.failureClass = failureClass;
-  error.status = status;
-  error.retryable = ["route_404", "rate_limited", "timeout", "network_error", "upstream_5xx", "non_json", "empty_success", "invalid_payload"].includes(failureClass);
-  return error;
-}
-
-function parseRelayPayload(raw: string, contentType: string): RelayPayload[] | null {
-  if (!contentType.toLowerCase().includes("json")) return null;
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed as RelayPayload[] : null;
-  } catch {
-    return null;
-  }
-}
-
-function classifyHttpFailure(status: number, payload: RelayPayload[] | null, raw: string): RelayFailure {
-  const nested = payload?.[0]?.error?.json;
-  const message = String(nested?.message || raw.slice(0, 120));
-  const lowerMessage = message.toLowerCase();
-  if (status === 401 || status === 403) return relayError("Contabo authentication was rejected.", "auth_401_403", status);
-  if (status === 404) {
-    if (nested?.data?.code === "NOT_FOUND" && /no public captions|no captions|transcript/i.test(lowerMessage)) {
-      return relayError("No public captions are available for this video.", "no_transcript", status);
-    }
-    return relayError("Contabo route returned HTTP 404.", "route_404", status);
-  }
-  if (status === 408) return relayError("Contabo request timed out.", "timeout", status);
-  if (status === 429) return relayError("Contabo or YouTube is rate-limiting requests.", "rate_limited", status);
-  if (status >= 500) return relayError(`Contabo upstream returned HTTP ${status}.`, "upstream_5xx", status);
-  if (status >= 400) return relayError(`Contabo returned HTTP ${status}.`, status === 400 ? "client_4xx" : "upstream_4xx", status);
-  return relayError("Contabo returned an unexpected response.", "invalid_payload", status);
-}
-
-function publicRelayError(failure: RelayFailure, label: string) {
-  if (failure.failureClass === "no_transcript") {
-    return new TRPCError({ code: "NOT_FOUND", message: "No public captions are available for this video." });
-  }
-  return new TRPCError({ code: "BAD_GATEWAY", message: `The ${label} fallback could not retrieve captions.` });
-}
-
-async function relayToFallback(url: string, endpointVariable: string, secretVariable: string, label: string) {
-  const fallbackUrl = (process.env[endpointVariable] ?? "").trim().replace(/\/$/, "");
-  const sharedSecret = (process.env[secretVariable] ?? "").trim();
-  if (!fallbackUrl || !sharedSecret) {
-    throw new TRPCError({ code: "PRECONDITION_FAILED", message: `The ${label} fallback is not configured.` });
-  }
-
-  if (label === "Contabo" && contaboBreaker.isOpen()) {
-    console.warn(`[${label}Fallback] circuit open`, JSON.stringify({ failureClass: "circuit_open", cooldownMs: CONTABO_BREAKER_COOLDOWN_MS }));
-    throw new TRPCError({ code: "BAD_GATEWAY", message: `The ${label} fallback is temporarily unavailable.` });
-  }
-
-  const requestId = randomUUID();
-  let lastFailure: RelayFailure | undefined;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const startedAt = Date.now();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FALLBACK_ATTEMPT_TIMEOUT_MS);
-    try {
-      const response = await fetch(`${fallbackUrl}/api/trpc/transcript.lookup?batch=1`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "Cache-Control": "no-store",
-          "Connection": "close",
-          "x-local-fallback-token": sharedSecret,
-        },
-        body: JSON.stringify({ 0: { json: { url } } }),
-        signal: controller.signal,
-      });
-      const raw = await response.text();
-      const contentType = response.headers.get("content-type") ?? "";
-      const payload = parseRelayPayload(raw, contentType);
-      if (!response.ok) throw classifyHttpFailure(response.status, payload, raw);
-      if (!payload) throw relayError("Contabo returned a non-JSON response.", "non_json", response.status);
-      const first = payload[0];
-      if (first?.error) {
-        const nested = first.error.json;
-        const nestedMessage = String(nested?.message || "").toLowerCase();
-        if (nested?.data?.code === "NOT_FOUND" && /no public captions|no captions|transcript/.test(nestedMessage)) {
-          throw relayError("No public captions are available for this video.", "no_transcript", response.status);
-        }
-        throw classifyHttpFailure(response.status >= 400 ? response.status : 500, payload, raw);
-      }
-      const result = first?.result?.data?.json;
-      if (!result || typeof result !== "object" || !Array.isArray((result as { segments?: unknown }).segments) || !(result as { segments: unknown[] }).segments.length) {
-        throw relayError("Contabo returned no readable transcript.", "empty_success", response.status);
-      }
-      if (label === "Contabo") contaboBreaker.onSuccess();
-      return result;
-    } catch (error) {
-      const failure = error && typeof error === "object" && "failureClass" in error
-        ? error as RelayFailure
-        : error instanceof Error && error.name === "AbortError"
-          ? relayError("Contabo request timed out.", "timeout")
-          : relayError("Contabo connection failed.", "network_error");
-      lastFailure = failure;
-      console.warn(`[${label}Fallback] request failed`, JSON.stringify({
-        requestId,
-        attempt: attempt + 1,
-        failureClass: failure.failureClass,
-        status: failure.status ?? null,
-        retryable: failure.retryable,
-        elapsedMs: Date.now() - startedAt,
-      }));
-      if (!failure.retryable || attempt === 1) break;
-      await new Promise(resolve => setTimeout(resolve, FALLBACK_RETRY_DELAY_MS));
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  if (label === "Contabo" && lastFailure?.retryable) contaboBreaker.onRetryableFailure();
-  throw publicRelayError(lastFailure ?? relayError("Unknown fallback failure.", "invalid_payload"), label);
-}
 
 export type AppRouter = typeof appRouter;
