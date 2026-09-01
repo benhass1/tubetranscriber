@@ -13,6 +13,7 @@ declare global {
         theme?: "light" | "dark" | "auto";
       }) => string;
       reset: (widgetId?: string) => void;
+      execute?: (widgetId?: string) => void;
       ready?: (callback: () => void) => void;
     };
     __CF_TURNSTILE_SITE_KEY__?: string;
@@ -67,6 +68,18 @@ export function resetTurnstileWidget() {
   }
 }
 
+/** Clears the one-shot token and explicitly starts a new invisible verification. */
+export function requestFreshTurnstileToken() {
+  clearTurnstileToken();
+  try {
+    if (!renderedWidgetId || !window.turnstile) return;
+    window.turnstile.reset(renderedWidgetId);
+    window.turnstile.execute?.(renderedWidgetId);
+  } catch {
+    // The widget may still be mounting; its effect will execute it once ready.
+  }
+}
+
 export default function TurnstileWidget() {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
@@ -87,13 +100,14 @@ export default function TurnstileWidget() {
         widgetIdRef.current = window.turnstile.render(`#${containerRef.current.id}`, {
           sitekey: siteKey,
           theme: "auto",
-          execution: "render",
+          execution: "execute",
           callback: saveTurnstileToken,
           "expired-callback": clearTurnstileToken,
           "error-callback": clearTurnstileToken,
           "timeout-callback": clearTurnstileToken,
         });
         renderedWidgetId = widgetIdRef.current;
+        window.turnstile.execute?.(widgetIdRef.current);
       };
       if (window.turnstile.ready) window.turnstile.ready(render);
       else render();
