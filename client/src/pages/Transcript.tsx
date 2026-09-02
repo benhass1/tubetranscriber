@@ -148,18 +148,21 @@ export default function Transcript() {
   const data = lookup.data;
   useEffect(() => {
     const videoId = data?.metadata.videoId;
-    if (!videoId || scrolledVideoIdRef.current === videoId) return;
-    scrolledVideoIdRef.current = videoId;
+    if (!revealReady || !videoId || scrolledVideoIdRef.current === videoId) return;
     let timeout = 0;
     const frame = window.requestAnimationFrame(() => {
-      const isMobile = window.matchMedia("(max-width: 760px)").matches;
-      const target = isMobile ? exportPanelRef.current : videoSectionRef.current;
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
-      // Allow the mobile card and thumbnail layout to settle before correcting the final position.
-      if (isMobile) timeout = window.setTimeout(() => target?.scrollIntoView({ behavior: "smooth", block: "start" }), 140);
+      const isPhoneOrTablet = window.matchMedia("(max-width: 1024px)").matches;
+      const target = isPhoneOrTablet ? transcriptResultRef.current : videoSectionRef.current;
+      if (!target) return;
+      scrolledVideoIdRef.current = videoId;
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const scrollToTarget = () => target.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth", block: "start" });
+      scrollToTarget();
+      // On compact layouts the player and cards can settle after the first paint; correct the final position once.
+      if (isPhoneOrTablet) timeout = window.setTimeout(scrollToTarget, 180);
     });
     return () => { window.cancelAnimationFrame(frame); if (timeout) window.clearTimeout(timeout); };
-  }, [data]);
+  }, [data?.metadata.videoId, revealReady]);
   const effectiveError = data ? "" : (renderFallbackError || lookup.error?.message || "");
   const friendlyError = friendlyTranscriptError(effectiveError);
   const transcriptText = data ? plainTranscript(data.segments) : "";
