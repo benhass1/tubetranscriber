@@ -2,7 +2,7 @@
 
 The Cloudflare Worker is the only component that makes YouTube-bound transcript requests. It validates the canonical YouTube URL, reads the signed caption track returned by YouTube, parses the transcript, prefers the original-language track, and stores successful results in Cloudflare KV for seven days.
 
-The public application no longer embeds an in-app Turnstile widget. Cloudflare’s edge Managed Challenge protects the transcript page and transcript mutation route before the request reaches the application. The application does not receive or forward a Turnstile token.
+The public application no longer embeds an in-app Turnstile widget. Cloudflare’s edge Managed Challenge protects the transcript HTML page before the application starts the transcript request. The application does not receive or forward a Turnstile token.
 
 ## Worker bindings
 
@@ -24,26 +24,11 @@ It must return non-secret readiness fields including `ok`, `runtime`, `transcrip
 
 ## Cloudflare WAF configuration
 
-Create these rules in the Cloudflare dashboard for the `tubetranscriber.com` zone under **Security → WAF → Custom rules**. Choose **Managed Challenge** as the action. Do not use Block, JavaScript Challenge, Interactive Challenge, or an in-page Turnstile widget.
+Create this rule in the Cloudflare dashboard for the `tubetranscriber.com` zone under **Security → WAF → Custom rules**. Choose **Managed Challenge** as the action. Do not use Block, JavaScript Challenge, Interactive Challenge, or an in-page Turnstile widget.
 
-### Rule A — protect transcript API requests
+If the previous API Managed Challenge rule exists, pause or remove it. The API mutation should not be directly challenged because a clearance cookie may not be available consistently across rapid XHR requests.
 
-Use this expression:
-
-```text
-(http.request.uri.path contains "/api/trpc/transcript.lookup" and http.request.method eq "POST")
-```
-
-Set:
-
-```text
-Action: Managed Challenge
-Rule name: TubeTranscriber transcript API managed challenge
-```
-
-This protects the actual transcript request. The challenge must complete before the POST is forwarded to the Render application.
-
-### Rule B — protect transcript pages
+### Rule — protect the transcript page
 
 Use this expression:
 
@@ -58,17 +43,17 @@ Action: Managed Challenge
 Rule name: TubeTranscriber transcript page managed challenge
 ```
 
-Do not challenge `/`, `/blog`, `/about`, `/assets/`, or other static files with this page rule. Do not enable Under Attack Mode site-wide.
+Do not challenge `/`, `/blog`, `/about`, `/assets/`, `/api/`, or other static files with this page rule. Do not enable Under Attack Mode site-wide.
 
-Cloudflare’s challenge is edge-level protection. It may show a verification interstitial or run silently for a trusted browser, and it establishes Cloudflare clearance before the protected request proceeds. A successful edge challenge is separate from the Worker’s YouTube retrieval result; YouTube can still refuse an uncached upstream request.
+Cloudflare’s challenge is edge-level protection. It may show a verification interstitial or run silently for a trusted browser, and it establishes Cloudflare clearance before the protected page loads. The browser then submits the normal transcript POST without a second API challenge. A successful edge challenge is separate from the Worker’s YouTube retrieval result; YouTube can still refuse an uncached upstream request.
 
 ## Application request flow
 
-The browser submits the normal form immediately and calls `transcript.lookup` without waiting for an in-app widget. Cloudflare challenges the protected page or POST at the edge when required. Render serves the existing UI and tRPC adapter, but it does not fetch YouTube. The adapter calls this Worker, and the Worker performs the YouTube retrieval and KV cache write.
+The browser submits the normal form immediately and calls `transcript.lookup` without waiting for an in-app widget. Cloudflare challenges the `/transcript` HTML page at the edge when required; the API POST is not directly challenged. Render serves the existing UI and tRPC adapter, but it does not fetch YouTube. The adapter calls this Worker, and the Worker performs the YouTube retrieval and KV cache write.
 
 ```text
 Browser
-  → Cloudflare edge Managed Challenge
+  → Cloudflare edge Managed Challenge on GET /transcript
   → Render UI/tRPC adapter
   → Cloudflare transcript Worker
   → YouTube caption/player endpoints
@@ -96,7 +81,7 @@ The active transcript architecture intentionally does not use Contabo, a home-PC
 
 ## Rollback
 
-To roll back the edge gate, pause or remove only the two custom WAF rules after confirming the application is no longer intended to use Managed Challenge. Do not delete the Worker, KV namespace, or existing encrypted bindings as part of a WAF rollback.
+To roll back the edge gate, pause or remove only the transcript-page custom WAF rule after confirming the application is no longer intended to use Managed Challenge. Do not delete the Worker, KV namespace, or existing encrypted bindings as part of a WAF rollback.
 
 Keep any legacy infrastructure inactive unless a separate architecture decision explicitly approves a new egress path.
 
