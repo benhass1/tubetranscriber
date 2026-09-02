@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { startWhenTurnstileTokenAvailable } from "./TurnstileWidget";
+import { MIN_TRANSCRIPT_REVEAL_MS, transcriptRevealDelayMs } from "../pages/Transcript";
 
 describe("startWhenTurnstileTokenAvailable", () => {
   it("waits for a token and starts exactly once", () => {
@@ -39,5 +40,16 @@ describe("startWhenTurnstileTokenAvailable", () => {
 
     expect(subscribed).toBe(true);
     expect(attempts).toBe(1);
+  });
+});
+
+
+describe("transcriptRevealDelayMs", () => {
+  it("waits only for the remaining time when extraction finishes early", () => {
+    expect(transcriptRevealDelayMs(1_000, 3_000)).toBe(MIN_TRANSCRIPT_REVEAL_MS - 2_000);
+  });
+
+  it("does not add delay when extraction already took ten seconds", () => {
+    expect(transcriptRevealDelayMs(1_000, 11_000)).toBe(0);
   });
 });
