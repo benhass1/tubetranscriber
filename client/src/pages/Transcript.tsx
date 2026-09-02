@@ -7,7 +7,8 @@ import { AlertCircle, ArrowRight, Check, ChevronDown, ChevronLeft, Clipboard, Do
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 
-export const MIN_TRANSCRIPT_REVEAL_MS = 10_000;
+// Keep only a short guard against accidental rapid-fire submissions.
+export const MIN_TRANSCRIPT_REVEAL_MS = 1_000;
 
 export function transcriptRevealDelayMs(startedAt: number, now = Date.now()) {
   return Math.max(0, MIN_TRANSCRIPT_REVEAL_MS - (now - startedAt));
