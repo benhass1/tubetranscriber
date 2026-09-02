@@ -171,7 +171,23 @@ export default function Transcript() {
   const filename = (data?.metadata.title || "tubetranscript").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "transcript";
   const announce = (message: string) => { setActionNotice(message); window.setTimeout(() => setActionNotice(""), 2600); };
   const copy = async () => { if (!data) return; try { await copyTranscript(plainTranscript(data.segments)); setCopied(true); announce("Transcript copied to your clipboard."); window.setTimeout(() => setCopied(false), 1800); } catch { announce("Copy is not supported here. Please select the transcript text and copy it manually."); } };
-  const startAnother = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); const value = nextUrl.trim(); if (!value) { announce("Paste a YouTube link to generate another transcript."); return; } lookup.reset(); setRevealReady(false); setNextUrl(""); navigate(`/transcript?url=${encodeURIComponent(value)}`); };
+  const startAnother = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const value = nextUrl.trim();
+    if (!value) { announce("Paste a YouTube link to generate another transcript."); return; }
+    // Clear every result-only state before navigation so an old error cannot flash or block the new attempt.
+    lookup.reset();
+    setRenderFallbackError("");
+    setActionNotice("");
+    setRevealReady(false);
+    setQuery("");
+    setCopied(false);
+    setFormatsOpen(false);
+    scrolledVideoIdRef.current = "";
+    setRetryNonce(value => value + 1);
+    setNextUrl("");
+    navigate(`/transcript?url=${encodeURIComponent(value)}`);
+  };
   const exportTranscript = (format: "Plain text" | "JSON" | "SRT" | "VTT" | "Markdown", extension: "txt" | "json" | "srt" | "vtt" | "md", contents: string, mimeType: string) => { download(`${filename}.${extension}`, contents, mimeType); announce(`${format} download started.`); };
   useEffect(() => {
     if (!data) return;
