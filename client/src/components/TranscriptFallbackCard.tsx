@@ -89,9 +89,6 @@ export default function TranscriptFallbackCard({
 
         {/* Header matching TubeTranscriber Landing Page typography */}
         <div className="text-center mb-6">
-          <p className="eyebrow justify-center mb-3">
-            <Sparkles className="w-3.5 h-3.5 text-[#2563eb] dark:text-[#60a5fa]" /> Zero-API Browser Extension
-          </p>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-[#14213d] dark:text-white mb-3">
             Want a Solution That{" "}
             <span className="text-[#2563eb] dark:text-[#60a5fa]">Never Fails?</span>
