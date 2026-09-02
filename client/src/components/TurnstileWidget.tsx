@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -13,6 +13,7 @@ declare global {
         theme?: "light" | "dark" | "auto";
       }) => string;
       reset: (widgetId?: string) => void;
+      remove?: (widgetId?: string) => void;
       execute?: (widgetId?: string) => void;
       ready?: (callback: () => void) => void;
     };
@@ -20,9 +21,14 @@ declare global {
   }
 }
 
+export const TURNSTILE_HARD_TIMEOUT_MS = 20_000;
 const TOKEN_STORAGE_KEY = "tubetranscriber-turnstile-token";
 type TokenListener = (token: string) => void;
 const tokenListeners = new Set<TokenListener>();
+type TurnstileFailureReason = "error" | "timeout" | "expired";
+type FailureListener = (reason: TurnstileFailureReason) => void;
+const failureListeners = new Set<FailureListener>();
+const renderedWidgetIds = new Set<string>();
 let renderedWidgetId: string | undefined;
 
 export function getTurnstileToken() {
@@ -49,6 +55,15 @@ export function onTurnstileToken(listener: TokenListener) {
   const current = getTurnstileToken().trim();
   if (current) listener(current);
   return () => tokenListeners.delete(listener);
+}
+
+export function onTurnstileFailure(listener: FailureListener) {
+  failureListeners.add(listener);
+  return () => failureListeners.delete(listener);
+}
+
+function notifyTurnstileFailure(reason: TurnstileFailureReason) {
+  failureListeners.forEach(listener => listener(reason));
 }
 
 export function clearTurnstileToken() {
@@ -83,31 +98,64 @@ export function requestFreshTurnstileToken() {
 export default function TurnstileWidget() {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
-  const containerIdRef = useRef("tubetranscriber-turnstile-widget");
+  const turnstileId = useId();
+  const [mounted, setMounted] = useState(false);
+  const containerId = `tubetranscriber-turnstile-widget-${turnstileId.replace(/:/g, "")}`;
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
+    if (!mounted) return;
     const siteKey = window.__CF_TURNSTILE_SITE_KEY__?.trim();
     if (!siteKey || !containerRef.current) return;
 
     let cancelled = false;
     let timer: number | undefined;
+    let retryTimer: number | undefined;
+    let renderRequested = false;
+    let automaticRetries = 0;
+
+    const handleFailure = (reason: TurnstileFailureReason) => {
+      clearTurnstileToken();
+      if (cancelled) return;
+      if (automaticRetries >= 1 || !widgetIdRef.current || !window.turnstile) {
+        notifyTurnstileFailure(reason);
+        return;
+      }
+      automaticRetries += 1;
+      try {
+        window.turnstile.reset(widgetIdRef.current);
+        retryTimer = window.setTimeout(() => {
+          if (!cancelled && widgetIdRef.current) window.turnstile?.execute?.(widgetIdRef.current);
+        }, 250);
+      } catch {
+        notifyTurnstileFailure(reason);
+      }
+    };
 
     const renderWidget = () => {
       if (cancelled || !containerRef.current || !window.turnstile) return false;
-      if (containerRef.current.childElementCount > 0) return true;
+      if (widgetIdRef.current || renderRequested || containerRef.current.childElementCount > 0) return true;
+      renderRequested = true;
       const render = () => {
-        if (cancelled || !containerRef.current || !window.turnstile || containerRef.current.childElementCount > 0) return;
-        widgetIdRef.current = window.turnstile.render(`#${containerRef.current.id}`, {
-          sitekey: siteKey,
-          theme: "auto",
-          execution: "execute",
-          callback: saveTurnstileToken,
-          "expired-callback": clearTurnstileToken,
-          "error-callback": clearTurnstileToken,
-          "timeout-callback": clearTurnstileToken,
-        });
-        renderedWidgetId = widgetIdRef.current;
-        window.turnstile.execute?.(widgetIdRef.current);
+        if (cancelled || !containerRef.current || !window.turnstile || widgetIdRef.current) return;
+        try {
+          widgetIdRef.current = window.turnstile.render(`#${containerId}`, {
+            sitekey: siteKey,
+            theme: "auto",
+            execution: "execute",
+            callback: saveTurnstileToken,
+            "expired-callback": () => handleFailure("expired"),
+            "error-callback": () => handleFailure("error"),
+            "timeout-callback": () => handleFailure("timeout"),
+          });
+          renderedWidgetIds.add(widgetIdRef.current);
+          renderedWidgetId = widgetIdRef.current;
+          window.turnstile.execute?.(widgetIdRef.current);
+        } catch {
+          renderRequested = false;
+          notifyTurnstileFailure("error");
+        }
       };
       if (window.turnstile.ready) window.turnstile.ready(render);
       else render();
@@ -123,15 +171,22 @@ export default function TurnstileWidget() {
     return () => {
       cancelled = true;
       if (timer) window.clearInterval(timer);
-      if (renderedWidgetId === widgetIdRef.current) renderedWidgetId = undefined;
+      if (retryTimer) window.clearTimeout(retryTimer);
+      const widgetId = widgetIdRef.current;
+      if (widgetId) {
+        renderedWidgetIds.delete(widgetId);
+        try { window.turnstile?.remove?.(widgetId); } catch { /* Widget may already be gone. */ }
+        if (renderedWidgetId === widgetId) renderedWidgetId = Array.from(renderedWidgetIds).at(-1);
+      }
+      widgetIdRef.current = undefined;
     };
-  }, []);
+  }, [containerId, mounted]);
 
-  if (typeof window === "undefined" || !window.__CF_TURNSTILE_SITE_KEY__) return null;
+  if (!mounted || typeof window === "undefined" || !window.__CF_TURNSTILE_SITE_KEY__) return null;
 
   return (
     <div className="turnstile-area" aria-label="Security verification">
-      <div id={containerIdRef.current} ref={containerRef} />
+      <div id={containerId} ref={containerRef} />
       <p className="turnstile-help">Complete the quick security check before extracting captions.</p>
     </div>
   );
