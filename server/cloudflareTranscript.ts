@@ -35,11 +35,9 @@ function workerError(status: number, message: string, stage = ""): never {
   throw new TRPCError({ code: "BAD_GATEWAY", message: safeMessage });
 }
 
-export async function extractTranscriptFromWorker(url: string, turnstileToken: string, lang?: string): Promise<ExtractedTranscript> {
+export async function extractTranscriptFromWorker(url: string, lang?: string): Promise<ExtractedTranscript> {
   const endpoint = transcriptWorkerUrl();
   if (!endpoint) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The Cloudflare transcript Worker is not configured." });
-  if (!turnstileToken.trim()) throw new TRPCError({ code: "FORBIDDEN", message: "Please complete the security check before extracting captions." });
-
   const target = new URL(`${endpoint}/api/transcript`);
   target.searchParams.set("url", url);
   if (lang?.trim()) target.searchParams.set("lang", lang.trim());
@@ -51,7 +49,6 @@ export async function extractTranscriptFromWorker(url: string, turnstileToken: s
       method: "GET",
       headers: {
         Accept: "application/json",
-        "x-turnstile-token": turnstileToken.trim(),
         "Cache-Control": "no-store",
       },
       signal: controller.signal,

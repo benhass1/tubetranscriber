@@ -5,10 +5,13 @@ compatibility_date = "2026-08-26"
 [vars]
 APP_VERSION = "transcript-worker-v1"
 
-# Configure these bindings in the Cloudflare account; never commit IDs or secrets
-# to the repository. Set the Turnstile secret with:
-#   npx wrangler secret put TURNSTILE_SECRET_KEY
-# Create a KV namespace and uncomment/fill this binding before production deploy:
+# Configure YOUTUBE_PLAYER_API_KEY as an account-side variable or encrypted secret.
+# Configure TRANSCRIPT_CACHE as an account-side KV binding.
+# Cloudflare edge Managed Challenge is configured in the tubetranscriber.com WAF;
+# no in-app Turnstile secret or token is required by the transcript route.
+# Never commit account secrets or namespace IDs to this repository.
+
+# Example account-side binding (leave IDs out of source control):
 # [[kv_namespaces]]
 # binding = "TRANSCRIPT_CACHE"
 # id = "YOUR_KV_NAMESPACE_ID"

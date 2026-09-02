@@ -36,14 +36,9 @@ function headTags(head: HeadMeta) {
   return tags.join("\n");
 }
 
-function turnstileConfigScript() {
-  const siteKey = JSON.stringify(process.env.CF_TURNSTILE_SITE_KEY ?? "");
-  return `<script>window.__CF_TURNSTILE_SITE_KEY__=${siteKey}</script>`;
-}
-
 function composeHtml(template: string, appHtml: string, head: HeadMeta, dehydratedState: unknown) {
   const serialized = JSON.stringify(superjson.serialize(dehydratedState)).replace(/</g, "\\u003c");
-  return template.replace("<!--app-head-->", () => headTags(head)).replace("<!--app-html-->", () => appHtml).replace("<!--turnstile-config-->", () => turnstileConfigScript()).replace("</body>", () => `<script>window.__RQ_STATE__=${serialized}</script></body>`);
+  return template.replace("<!--app-head-->", () => headTags(head)).replace("<!--app-html-->", () => appHtml).replace("</body>", () => `<script>window.__RQ_STATE__=${serialized}</script></body>`);
 }
 
 function ssrCacheControl(pathname: string) {

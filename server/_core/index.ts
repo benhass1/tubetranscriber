@@ -7,7 +7,6 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { isTurnstileConfigured } from "../turnstile";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -57,7 +56,6 @@ async function startServer() {
         localFallbackConfigured,
         localFallbackSecretConfigured,
         localFallbackServer: isLocalFallbackServer,
-        turnstileConfigured: isTurnstileConfigured(),
       },
     });
   });

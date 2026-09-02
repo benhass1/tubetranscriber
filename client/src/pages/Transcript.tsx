@@ -1,5 +1,4 @@
 import SiteShell from "@/components/SiteShell";
-import TurnstileWidget, { TURNSTILE_HARD_TIMEOUT_MS, clearTurnstileToken, getTurnstileToken, onTurnstileFailure, onTurnstileToken, requestFreshTurnstileToken, resetTurnstileWidget, startWhenTurnstileTokenAvailable } from "@/components/TurnstileWidget";
 import YouTubeTranscriptPlayer from "@/components/YouTubeTranscriptPlayer";
 import { trpc } from "@/lib/trpc";
 import { saveLocalHistoryEntry } from "@/lib/localHistory";
@@ -48,7 +47,7 @@ function highlight(text: string, term: string) {
 }
 
 function TranscriptPageShell({ children }: { children: ReactNode }) {
-  return <SiteShell><div className="transcript-route-shell"><div className="transcript-turnstile transcript-turnstile-persistent"><TurnstileWidget /></div>{children}</div></SiteShell>;
+  return <SiteShell>{children}</SiteShell>;
 }
 
 function TranscriptLoading({ browserFallbackPending = false }: { browserFallbackPending?: boolean }) {
@@ -65,11 +64,14 @@ function TranscriptLoading({ browserFallbackPending = false }: { browserFallback
 
 function friendlyTranscriptError(error: string) {
   const normalized = error.toLowerCase();
-  if (normalized.includes("security") || normalized.includes("turnstile") || normalized.includes("verification") || normalized.includes("forbidden")) {
-    return "Please complete the security check, then try again with the same link.";
+  if (normalized.includes("security") || normalized.includes("verification") || normalized.includes("forbidden")) {
+    return "Cloudflare could not complete the security check. Please reload the page and try again.";
   }
   if (normalized.includes("no public captions") || normalized.includes("no captions") || normalized.includes("caption") && normalized.includes("available")) {
     return "This video does not appear to provide public captions. Try a public video with captions enabled.";
+  }
+  if (normalized.includes("cloudflare stage") || normalized.includes("transcript unavailable") || normalized.includes("bad gateway")) {
+    return "YouTube temporarily did not provide captions. Please wait a moment and try again.";
   }
   if (normalized.includes("private") || normalized.includes("unavailable") || normalized.includes("age restricted") || normalized.includes("unplayable")) {
     return "This video may be private, restricted, or unavailable. Check the YouTube link and visibility settings.";
@@ -114,26 +116,11 @@ export default function Transcript() {
       previousSourceUrl.current = sourceUrl;
     }
     let cancelled = false;
-    let attemptStarted = false;
-    let stopWaiting: () => void = () => undefined;
-    let hardTimeout: number | undefined;
-    clearTurnstileToken();
     lookup.reset();
     setRevealReady(false);
     setRenderFallbackError("");
-    if (sourceChanged || retryNonce > 0) requestFreshTurnstileToken();
-
-    const failSecurityCheck = () => {
-      if (cancelled || attemptStarted) return;
-      if (hardTimeout) window.clearTimeout(hardTimeout);
-      stopWaiting();
-      resetTurnstileWidget();
-      setRenderFallbackError("Security check failed. Please try again.");
-    };
 
     const runAttempt = async () => {
-      attemptStarted = true;
-      if (hardTimeout) window.clearTimeout(hardTimeout);
       const startedAt = Date.now();
       const waitForMinimumDuration = async () => {
         const remaining = transcriptRevealDelayMs(startedAt);
@@ -146,23 +133,11 @@ export default function Transcript() {
       } finally {
         await waitForMinimumDuration();
         if (!cancelled) setRevealReady(true);
-        resetTurnstileWidget();
       }
     };
 
-    stopWaiting = startWhenTurnstileTokenAvailable(
-      getTurnstileToken,
-      onTurnstileToken,
-      () => { void runAttempt(); },
-    );
-    const stopFailureListener = onTurnstileFailure(() => failSecurityCheck());
-    hardTimeout = window.setTimeout(() => failSecurityCheck(), TURNSTILE_HARD_TIMEOUT_MS);
-    return () => {
-      cancelled = true;
-      if (hardTimeout) window.clearTimeout(hardTimeout);
-      stopWaiting();
-      stopFailureListener();
-    };
+    void runAttempt();
+    return () => { cancelled = true; };
   }, [sourceUrl, retryNonce]);
   const retrySameVideo = () => {
     scrolledVideoIdRef.current = "";

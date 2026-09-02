@@ -24,7 +24,7 @@ export const appRouter = router({
       if (!transcriptWorkerUrl()) {
         throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The Cloudflare transcript Worker is not configured." });
       }
-      const result = await extractTranscriptFromWorker(input.url, ctx.req.header("x-turnstile-token") ?? "");
+      const result = await extractTranscriptFromWorker(input.url);
       ctx.res.setHeader("X-Cache-Status", "WORKER");
       return result;
     }),

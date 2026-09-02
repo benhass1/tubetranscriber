@@ -22,7 +22,7 @@ function corsHeaders(request) {
   const allowed = new Set(["https://tubetranscriber.com", "https://www.tubetranscriber.com"]);
   return {
     "Access-Control-Allow-Origin": allowed.has(origin) ? origin : "*",
-    "Access-Control-Allow-Headers": "content-type, x-turnstile-token, x-proxy-auth",
+    "Access-Control-Allow-Headers": "content-type",
     "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
@@ -219,7 +219,6 @@ function cacheKey(videoId, lang) {
 }
 
 function healthResponse(request, env) {
-  const turnstileConfigured = Boolean(String(env.TURNSTILE_SECRET_KEY || env.CF_TURNSTILE_SECRET_KEY || "").trim());
   const playerConfigured = Boolean(String(env.YOUTUBE_PLAYER_API_KEY || "").trim());
   return jsonResponse(request, {
     ok: true,
@@ -227,7 +226,6 @@ function healthResponse(request, env) {
     version: String(env.APP_VERSION || "dev"),
     runtime: "cloudflare-worker",
     transcriptCacheConfigured: Boolean(env.TRANSCRIPT_CACHE),
-    turnstileConfigured,
     playerConfigured,
   });
 }
@@ -318,23 +316,6 @@ function allowMiss(ip) {
   return true;
 }
 
-async function verifyTurnstile(request, env) {
-  const token = (request.headers.get("x-turnstile-token") || "").trim();
-  if (!token) return { ok: false, response: jsonResponse(request, { error: "Missing turnstile token. Please refresh and try again." }, 403) };
-  const secret = String(env.TURNSTILE_SECRET_KEY || env.CF_TURNSTILE_SECRET_KEY || "").trim();
-  if (!secret) return { ok: false, response: jsonResponse(request, { error: "Turnstile is not configured." }, 503) };
-  const form = new URLSearchParams({ secret, response: token });
-  const remoteIp = request.headers.get("CF-Connecting-IP");
-  if (remoteIp) form.set("remoteip", remoteIp);
-  try {
-    const result = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form });
-    const payload = await result.json();
-    return payload.success ? { ok: true } : { ok: false, response: jsonResponse(request, { error: "Turnstile verification failed. Please try again." }, 403) };
-  } catch {
-    return { ok: false, response: jsonResponse(request, { error: "Turnstile verification failed. Please try again." }, 403) };
-  }
-}
-
 async function transcriptRoute(request, env) {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request) });
   if (request.method === "POST") return jsonResponse(request, { error: "Method not allowed" }, 405);
@@ -347,8 +328,6 @@ async function transcriptRoute(request, env) {
   const videoId = extractVideoId(rawUrl);
   if (!videoId) return jsonResponse(request, { error: "invalid youtube link format" }, 400);
   const lang = url.searchParams.get("lang") || "";
-  const verification = await verifyTurnstile(request, env);
-  if (!verification.ok) return verification.response;
   const key = cacheKey(videoId, lang);
   const cached = await getCached(env, key);
   if (cached) return jsonResponse(request, { ...cached, workerCacheStatus: "HIT" }, 200, { "cache-control": "public, max-age=3600", "x-transcript-cache": "HIT" });

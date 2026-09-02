@@ -6,7 +6,6 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { startLogin } from "./const";
-import { getTurnstileToken } from "@/components/TurnstileWidget";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -60,8 +59,6 @@ const trpcClient = trpc.createClient({
         } catch {
           // sessionStorage unavailable
         }
-        const turnstileToken = getTurnstileToken();
-        if (turnstileToken) headers["x-turnstile-token"] = turnstileToken;
         return headers;
       },
       fetch(input, init) {
