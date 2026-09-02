@@ -220,6 +220,7 @@ function cacheKey(videoId, lang) {
 
 function healthResponse(request, env) {
   const turnstileConfigured = Boolean(String(env.TURNSTILE_SECRET_KEY || env.CF_TURNSTILE_SECRET_KEY || "").trim());
+  const playerConfigured = Boolean(String(env.YOUTUBE_PLAYER_API_KEY || "").trim());
   return jsonResponse(request, {
     ok: true,
     service: "tubetranscriber-transcript-proxy",
@@ -227,6 +228,7 @@ function healthResponse(request, env) {
     runtime: "cloudflare-worker",
     transcriptCacheConfigured: Boolean(env.TRANSCRIPT_CACHE),
     turnstileConfigured,
+    playerConfigured,
   });
 }
 
@@ -362,7 +364,10 @@ async function transcriptRoute(request, env) {
     }
   }
   if (!watch.response || !watch.response.ok || !watch.markup) {
-    if (!tracks.length) return stageError(request, "transcript unavailable", 502, "watch-fetch");
+    if (!tracks.length) {
+      const playerConfigured = Boolean(extractConfigValue(markup, "INNERTUBE_API_KEY") || String(env.YOUTUBE_PLAYER_API_KEY || "").trim());
+      return stageError(request, "transcript unavailable", 502, playerConfigured ? "player-fetch" : "player-config");
+    }
   }
   if (["LOGIN_REQUIRED", "UNPLAYABLE", "ERROR"].includes(playability)) return stageError(request, "Private, age-restricted, or unplayable video.", 422, "player-playability");
   if (!tracks.length) return stageError(request, "No captions available for this video.", 404, "caption-tracks");

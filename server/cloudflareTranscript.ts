@@ -21,7 +21,7 @@ type WorkerPayload = {
   transcript?: WorkerCue[];
 };
 
-const SAFE_WORKER_STAGES = new Set(["watch-fetch", "player-playability", "caption-tracks", "caption-track-url", "timedtext-empty"]);
+const SAFE_WORKER_STAGES = new Set(["watch-fetch", "player-config", "player-fetch", "player-playability", "caption-tracks", "caption-track-url", "timedtext-empty"]);
 
 function workerError(status: number, message: string, stage = ""): never {
   const detail = SAFE_WORKER_STAGES.has(stage) ? ` [Cloudflare stage: ${stage}]` : "";
