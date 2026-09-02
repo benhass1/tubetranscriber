@@ -17,6 +17,7 @@ export type ExtractedTranscript = {
   metadata: VideoMetadata;
   segments: TranscriptSegment[];
   originalLanguage?: TranscriptLanguage;
+  workerCacheStatus?: "HIT" | "STORED" | "WRITE_FAILED";
 };
 const SUCCESS_CACHE_TTL_MS = 5 * 60 * 1000;
 const successfulTranscriptCache = new Map<string, { expiresAt: number; result: ExtractedTranscript }>();

@@ -351,7 +351,7 @@ async function transcriptRoute(request, env) {
   if (!verification.ok) return verification.response;
   const key = cacheKey(videoId, lang);
   const cached = await getCached(env, key);
-  if (cached) return jsonResponse(request, cached, 200, { "cache-control": "public, max-age=3600", "x-transcript-cache": "HIT" });
+  if (cached) return jsonResponse(request, { ...cached, workerCacheStatus: "HIT" }, 200, { "cache-control": "public, max-age=3600", "x-transcript-cache": "HIT" });
   const ip = request.headers.get("CF-Connecting-IP") || "anonymous";
   if (!allowMiss(ip)) return jsonResponse(request, { error: "Too many requests. Try again in a minute." }, 429, { "retry-after": "60" });
 
