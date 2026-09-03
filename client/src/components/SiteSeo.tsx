@@ -38,6 +38,7 @@ export default function SiteSeo() {
     const ogDescription = head.ogDescription || head.description;
     document.title = head.title;
     upsertMeta("description", head.description);
+    upsertMeta("robots", head.noindex ? "noindex, follow" : "index, follow, max-image-preview:large");
     upsertMeta("revised", MODIFIED_DATE);
     upsertMeta("og:title", ogTitle, "property");
     upsertMeta("og:description", ogDescription, "property");

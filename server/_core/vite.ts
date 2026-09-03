@@ -57,8 +57,14 @@ function crawlerFiles(app: Express) {
   app.get("/llms.txt", (_req, res) => res.type("text/plain").send(`# TubeTranscriber\n\nTubeTranscriber is a public YouTube to transcript tool and YouTube transcript generator. It can convert an available YouTube video to transcript text, making it a practical YouTube video transcript generator for reading, search, copy, and export workflows. Visitors paste a public YouTube URL and can export TXT, JSON, or SRT files. No account is required. Recent lookups are stored only in the visitor's browser.\n\n## Public pages\n\n- / — YouTube transcript generator and usage overview\n- /blog — guides for YouTube caption extraction and creator workflows\n${pseoPages.map((page) => `- ${page.path} — ${page.title}`).join("\\n")}\n- /about — usage guide and FAQ\n- /privacy — browser-local data and privacy policy\n- /terms — responsible-use terms\n- /copyright — copyright and DMCA guidance\n- /contact — support and legal contact information\n\n## Limitations\n\nA transcript is available only when YouTube exposes captions for the requested public video. TubeTranscriber is not affiliated with YouTube or Google.\n`));
   app.get("/sitemap.xml", (_req, res) => {
     if (!canonicalOrigin) return res.status(404).type("text/plain").send("Configure CANONICAL_ORIGIN to enable the sitemap.");
-    const routes = ["/", "/about", "/blog", ...blogPosts.map((post) => `/blog/${post.slug}`), ...pseoPages.map((page) => page.path), "/privacy", "/terms", "/copyright", "/contact"];
-    const urls = routes.map(route => `<url><loc>${canonicalOrigin}${route}</loc></url>`).join("");
+    const lastmod = "2026-09-03";
+    const routes: Array<[string, string, string]> = [
+      ["/", lastmod, "1.0"], ["/about", lastmod, "0.8"], ["/blog", lastmod, "0.9"],
+      ...blogPosts.map((post) => [`/blog/${post.slug}`, post.date, "0.8"] as [string, string, string]),
+      ...pseoPages.map((page) => [page.path, lastmod, "0.8"] as [string, string, string]),
+      ["/terms", lastmod, "0.3"], ["/copyright", lastmod, "0.3"],
+    ];
+    const urls = routes.map(([route, modified, priority]) => `<url><loc>${canonicalOrigin}${route}</loc><lastmod>${modified}</lastmod><priority>${priority}</priority></url>`).join("");
     res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
   });
 }
