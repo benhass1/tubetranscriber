@@ -61,7 +61,7 @@ Browser
   → existing transcript UI
 ```
 
-The adapter timeout remains bounded. If YouTube returns a bot-check, `LOGIN_REQUIRED`, upstream `429`, empty timedtext, or another transient upstream refusal, the application should present a temporary caption-service error rather than incorrectly claiming that the video is private.
+The adapter timeout remains bounded. If YouTube returns a bot-check, `LOGIN_REQUIRED`, upstream `429`, empty timedtext, or another transient upstream refusal, the application should present a temporary caption-service error rather than incorrectly claiming that the video is private. The Worker keeps a generous shared miss guard of 120 uncached attempts per 10 minutes because Render’s server-side requests share one Cloudflare egress IP; cached transcripts do not consume that miss budget.
 
 ## Safe verification
 

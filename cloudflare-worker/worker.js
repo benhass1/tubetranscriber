@@ -8,8 +8,10 @@ const ALLOWED_HOSTS = new Set([
 ]);
 const MAX_POST_BYTES = 2 * 1024 * 1024;
 const TRANSCRIPT_CACHE_TTL = 7 * 24 * 60 * 60;
+// Render's server-side requests share one Cloudflare egress IP for all visitors.
+// Keep a generous guard so a few legitimate new videos do not exhaust the shared bucket.
 const RATE_LIMIT_WINDOW = 10 * 60 * 1000;
-const RATE_LIMIT_MAX_MISSES = 10;
+const RATE_LIMIT_MAX_MISSES = 120;
 const missBuckets = new Map();
 const DESKTOP_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
@@ -332,7 +334,7 @@ async function transcriptRoute(request, env) {
   const cached = await getCached(env, key);
   if (cached) return jsonResponse(request, { ...cached, workerCacheStatus: "HIT" }, 200, { "cache-control": "public, max-age=3600", "x-transcript-cache": "HIT" });
   const ip = request.headers.get("CF-Connecting-IP") || "anonymous";
-  if (!allowMiss(ip)) return jsonResponse(request, { error: "Too many requests. Try again in a minute." }, 429, { "retry-after": "60" });
+  if (!allowMiss(ip)) return jsonResponse(request, { error: "Too many requests. Try again later." }, 429, { "retry-after": "600" });
 
   const watch = await fetchWatchMarkup(videoId);
   const markup = watch.markup || "";
